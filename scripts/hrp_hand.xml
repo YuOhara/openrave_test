@@ -1,0 +1,10 @@
+<Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/HRP3HAND_R.dae">
+  <Manipulator name="hand">
+    <base>RARM_LINK6</base>
+    <effector>RARM_LINK6</effector>
+    <Translation>0 0 0.16</Translation>
+    <joints>R_THUMBCM_P R_MIDDLEPIP_R</joints>
+    <closingdirection>-1 1</closingdirection>
+    <direction>-0.7 0 -0.7</direction>
+  </Manipulator>
+</Robot>
