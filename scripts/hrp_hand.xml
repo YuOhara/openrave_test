@@ -2,9 +2,10 @@
   <Manipulator name="hand">
     <base>RARM_LINK6</base>
     <effector>RARM_LINK6</effector>
-    <Translation>0 0 0.16</Translation>
+    <Translation>0 0.04 -0.15</Translation>
     <joints>R_THUMBCM_P R_MIDDLEPIP_R</joints>
     <closingdirection>-1 1</closingdirection>
-    <direction>-0.7 0 -0.7</direction>
+    <!-- <direction>0 0.7 -0.7</direction> -->
+    <direction>0 0.7 -0.7</direction>
   </Manipulator>
 </Robot>
