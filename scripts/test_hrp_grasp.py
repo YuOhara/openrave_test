@@ -12,6 +12,8 @@ taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 parser = databases.DatabaseGenerator.CreateOptionParser()
 (options, hoge) = parser.parse_args(args=["--numthread=40"])
 
+gmodel.autogenerate()
+# gmodel.autogenerate(options=options)
 if not gmodel.load():
     gmodel.autogenerate()
     # gmodel.autogenerate(options=options)
@@ -28,9 +30,22 @@ if not gmodel.load():
 # robot.WaitForController(0)
 env.SetViewer('qtcoin')
 
-def show_result():
-    print "the total grasp is %d" % len(gmodel.grasps)
+removed_grasp = []
+def get_removed():
+    global removed_grasp
+    removed_grasp = []
     for grasp in gmodel.grasps:
-        gmodel.showgrasp(grasp)
+        T = gmodel.getGlobalGraspTransform(grasp)
+        if T[1][3] < -0.03:
+            removed_grasp.append(grasp)
 
-show_result()
+def show_result(result=gmodel.grasps):
+    print "the total grasp is %d" % len(result)
+    i = 0
+    for grasp in result:
+        print i
+        gmodel.showgrasp(grasp)
+        i = i+1
+
+get_removed()
+show_result(removed_grasp)

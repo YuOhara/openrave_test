@@ -2,8 +2,8 @@
   <RotationAxis>1 0 0 90</RotationAxis>
   <Body name = "mugbase" type="dynamic">
     <Geom type="trimesh">
-      <Data>mesh2.dae</Data>
-      <Render>mesh2.dae</Render>
+      <Data>pc_trans.dae</Data>
+      <Render>pc_trans.dae</Render>
     </Geom>
   </Body>
 </KinBody>
