@@ -1,0 +1,23 @@
+<launch>
+  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen">
+    <remap from="~input/depth" to="/camera/depth/image_rect" />
+    <remap from="~input/color" to="/camera/depth/image_rect" />
+    <remap from="~input/info" to="/camera/depth/camera_info" />
+    <rosparam>
+      tsdf_trunc_dist: 0.03
+      icp_dist_trans: 0.1
+      icp_dist_rot: 20
+      camera_movement_thre: 0.001
+      child_frame_id: /camera_depth_optical_frame
+    </rosparam>
+  </node>
+  <!-- <include file="$(find jsk_pcl_ros)/launch/laser_multi_plane_segmentation.launch" > -->
+  <!--   <arg name="INPUT" value="/kinfu/output/cloud" /> -->
+  <!--   <arg name="LASER_FLAME_ID" default="/camera_depth_optical_frame" /> -->
+  <!-- </include> -->
+  <include file="$(find jsk_pcl_ros)/launch/organized_multi_plane_segmentation.launch">
+    <arg name="INPUT" value="/camera/depth/points" />
+  </include>
+  <node pkg="openrave_test" type="grasp_finder_node.py" name="grasp_finder" output="screen">
+  </node>
+</launch>
