@@ -157,13 +157,21 @@ def callback(box):
         print "tf error: %s" % e
         return
     ## call service for save mesh
+    rospy.loginfo("save mesh start")
     rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
+    rospy.loginfo("save mesh end")
     ## change ply -> dae
     check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh.ply -o /home/leus/.ros/mesh.dae")
     print check
+    check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+    print check
+    check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
+    print check
+    check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae $(rospack find openrave_test)/scripts/tmp_model.l")
+    print check
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
-    env.SetViewer('qtcoin')
+    # env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
     target = env.GetKinBody('mug1')
     gmodel = databases.grasping.GraspingModel(robot,target)
