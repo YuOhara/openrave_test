@@ -1,0 +1,7 @@
+<launch>
+  <arg name="INPUT" default="/camera_remote/depth_registered/points" />
+  <node pkg="jsk_pcl_ros" type="attention_clipper" name="attention_clipper">
+    <param name="use_multiple_attention" value="true"/>
+    <remap from="~input/points" to="$(arg INPUT)" />
+  </node>
+</launch>
