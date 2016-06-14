@@ -5,8 +5,10 @@ import rospy
 import commands
 
 def file_get(req):
+    print "start scp"
     check = commands.getoutput("scp leus@koi:/home/leus/.ros/tmp_model.l /home/leus/.ros/tmp_model.l")
     print check
+    print "end scp"
     return EmptyResponse()
 
 def file_getter_server():
