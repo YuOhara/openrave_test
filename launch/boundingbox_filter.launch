@@ -4,4 +4,5 @@
     <param name="use_multiple_attention" value="true"/>
     <remap from="~input/points" to="$(arg INPUT)" />
   </node>
+  <node pkg="openrave_test" type="boundingbox_publisher.py" name="boundingbox_publisher" />
 </launch>
