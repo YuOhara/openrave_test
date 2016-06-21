@@ -17,7 +17,7 @@ def box_pub_server():
     x_y_r_list = [[0.6*2*numpy.sin(numpy.deg2rad(15)) * 0.5, 0.6*2*numpy.sin(numpy.deg2rad(15)) * 0.86, 45], [0.6*2*numpy.sin(numpy.deg2rad(15)) * 0.5, -0.6*2*numpy.sin(numpy.deg2rad(15)) * 0.86, -45]]
     for x_y_r in x_y_r_list:
         box = BoundingBox()
-        box.dimensions = Vector3(x=0.6*2*numpy.sin(15) * 0.5, y=0.2, z=0.8)
+        box.dimensions = Vector3(x=0.6*2*numpy.sin(15) * 0.5 * 1.1, y=0.4, z=0.8)
         box.header.frame_id = "ground"
         box.pose.position = Point(x=x_y_r[0], y=x_y_r[1], z=0.5)
         box.pose.orientation = Quaternion(0, 0, numpy.sin(numpy.deg2rad(x_y_r[2]/2)), numpy.cos(numpy.deg2rad(x_y_r[2]/2)))

@@ -41,11 +41,11 @@ def return_box_approach_rays(gmodel, box):
             dz = ez * dim.z
             print dim.x, dim.y, dim.z
             sides = numpy.array((numpy.r_[dz, -ez, dx, dy],
-                           #numpy.r_[-dz, ez, ex, ey],
-                           numpy.r_[dy, -ey, dx, dz],
-                           numpy.r_[-dy, ey, dx, dz],
-                           numpy.r_[dx, -ex, dy, dz],
-                           numpy.r_[-dx, ex, dy, dz]
+                                 numpy.r_[-dz, ez, dx, dy],
+                                 numpy.r_[dy, -ey, dx, dz],
+                                 numpy.r_[-dy, ey, dx, dz],
+                                 numpy.r_[dx, -ex, dy, dz],
+                                 numpy.r_[-dx, ex, dy, dz]
                        ))
             maxlen = 2*numpy.sqrt(dim.x**2 + dim.y**2 + dim.z**2)+0.03
             approachrays = numpy.zeros((0,6))
@@ -171,7 +171,7 @@ def callback(box):
     print check
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
-    # env.SetViewer('qtcoin')
+    env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
     target = env.GetKinBody('mug1')
     gmodel = databases.grasping.GraspingModel(robot,target)
@@ -197,6 +197,10 @@ def publish_result(gmodel):
     pose_array.header.frame_id = "/kinfu_origin"
     pose_array.header.stamp = rospy.Time.now()
     grasp_array_pub.publish(pose_array)
+    rospy.on_shutdown(shut_down_hook)
+
+def shut_down_hook():
+    print "shutting down node"
 
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
