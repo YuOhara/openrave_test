@@ -1,0 +1,21 @@
+<robot name="tmp-world">
+  <link name="root">
+    <inertial>
+     <origin xyz="0 0 0.5" rpy="0 0 0"/>
+     <mass value="1"/>
+     <inertia ixx="100"  ixy="0"  ixz="0" iyy="100" iyz="0" izz="100" />
+    </inertial>
+    <visual>
+     <origin xyz="0 0 0" rpy="0 0 0" />
+     <geometry>
+       <mesh filename="package://openrave_test/scripts/mesh_estimated.dae" />
+     </geometry>
+    </visual>
+    <collision>
+     <origin xyz="0 0 0" rpy="0 0 0"/>
+     <geometry>
+       <mesh filename="package://openrave_test/scripts/mesh_estimated.dae" />
+     </geometry>
+    </collision>
+  </link>
+</robot>

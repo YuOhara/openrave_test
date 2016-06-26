@@ -116,7 +116,7 @@ def return_sphere_approach_rays(gmodel, box):
             return approachrays
     finally:
         cc.DestroyEnvironment()
-def return_rave_params(gmodel, box):
+def return_rave_params(gmodel, box, approachrays = None):
     friction = None
     preshapes = None
     manipulatordirections = None
@@ -134,7 +134,8 @@ def return_rave_params(gmodel, box):
     friction = 0.3
     forceclosure = True
     forceclosurethreshold=1e-9
-    approachrays = return_box_approach_rays(gmodel, box)
+    if (approachrays == None):
+        approachrays = return_box_approach_rays(gmodel, box)
     return preshapes,standoffs,rolls,approachrays, graspingnoise,forceclosure,forceclosurethreshold,None,manipulatordirections,translationstepmult,finestep,friction,avoidlinks,plannername
 
 def callback(box):
@@ -160,27 +161,44 @@ def callback(box):
     rospy.loginfo("save mesh start")
     rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
     rospy.loginfo("save mesh end")
+
     ## change ply -> dae
     check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh.ply -o /home/leus/.ros/mesh.dae")
     print check
-    check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+    # check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+    # print check
+    # check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
+    # print check
+    # check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae $(rospack find openrave_test)/scripts/tmp_model.l")
+    # print check
+    ## estimated
+    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated.ply -o /home/leus/.ros/mesh_estimated.dae")
     print check
-    check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
-    print check
-    check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae $(rospack find openrave_test)/scripts/tmp_model.l")
-    print check
+    # check = commands.getoutput("cp /home/leus/.ros/mesh_estimated.dae $(rospack find openrave_test)/scripts/mesh_estimated.dae")
+    # print check
+    # check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model_estimated.urdf $(rospack find openrave_test)/scripts/tmp_model_estimated.dae")
+    # print check
+    # check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae $(rospack find openrave_test)/scripts/tmp_model_estimated.l")
+    # print check
+
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
-    target = env.GetKinBody('mug1')
-    gmodel = databases.grasping.GraspingModel(robot,target)
+    target1 = env.GetKinBody('mug1')
+    gmodel1 = databases.grasping.GraspingModel(robot,target1)
+    target2 = env.GetKinBody('mug2')
+    gmodel2 = databases.grasping.GraspingModel(robot,target1)
     taskmanip = interfaces.TaskManipulation(robot)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
     # gmodel.generate(*gmodel.autogenerateparams())
-    gmodel.generate(*return_rave_params(gmodel, box))
-    publish_result(gmodel)
-    gmodel.save()
+    approachrays = return_box_approach_rays(gmodel1, box)
+    gmodel1.generate(*return_rave_params(gmodel1, box, approachrays = approachrays))
+    gmodel2.generate(*return_rave_params(gmodel2, box, approachrays = approachrays))
+    publish_result(gmodel1)
+    gmodel1.save()
+    publish_result(gmodel2)
+    gmodel2.save()
     ## respected to frame, kinfu outputs with camera frame.
 
 def publish_result(gmodel):

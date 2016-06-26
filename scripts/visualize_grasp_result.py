@@ -5,8 +5,8 @@ env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml
 # env.Load('data/lab1.env.xml')
 env.SetViewer('qtcoin')
 robot = env.GetRobots()[0]
-target = env.GetKinBody('mug1')
-gmodel = databases.grasping.GraspingModel(robot,target)
+target1 = env.GetKinBody('mug2')
+gmodel = databases.grasping.GraspingModel(robot,target1)
 taskmanip = interfaces.TaskManipulation(robot)
 taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 # taskmanip.robot.SetDOFValues([0.0, 0.0, -0.453786, 0.872665, -0.418879, 0.0, 0.0, 0.0, 0.0, -0.453786, 0.872665, -0.418879, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.349066, -0.523599, 0.523599, 0.0, 0.0, 0.0, -0.174533, 0.261799, -0.349066, 0.523599, -0.523599, 0.0, 0.0, 0.0, -0.174533, -0.261799])
