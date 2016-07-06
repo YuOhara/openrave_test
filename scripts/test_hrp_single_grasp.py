@@ -14,8 +14,11 @@ grasper = interfaces.Grasper(robot)
 manipulatordirection = manip.GetLocalToolDirection()
 
 standoffs = [0, 0.025]
+position = numpy.array([1, 0, 0])
+posematrix = matrixFromAxisAngle(numpy.array([1, 0, 0]), 0)
+posematrix[0:3,3] = position
+grasper.robot.SetTransform(posematrix)
 
-## todo Generate Mat with pose
-grasper.robot.SetTransform(matrixFromAxisAngle(numpy.array([1, 0, 0]), 0))
-robot.SetActiveDOFs(self.manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if translate else 0)
-contacts,finalconfig,mindist,volume = grasper.Grasp(direction=numpy.array([1, 0, 0]), roll=0, position=numpy.array([1, 0, 0]), standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=None, chuckingdirection=manip.GetChuckingDirection())
+robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
+
+contacts,finalconfig,mindist,volume = grasper.Grasp(direction=numpy.array([1, 0, 0]), roll=0, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=None, chuckingdirection=manip.GetChuckingDirection())
