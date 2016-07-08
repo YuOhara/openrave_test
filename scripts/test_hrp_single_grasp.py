@@ -14,10 +14,10 @@ grasper = interfaces.Grasper(robot)
 manipulatordirection = manip.GetLocalToolDirection()
 
 standoffs = [0, 0.025]
-roll= numpy.pi / 4 * 0
-tbasematrix = matrixFromQuat(quatFromAxisAngle(manipulatordirection, roll))
+roll= numpy.pi / 4 * 2
 direction = numpy.array([0, 0, -1])
 position = numpy.array([0.3, 0, 0])
+tbasematrix = matrixFromQuat(quatFromAxisAngle(manipulatordirection, roll))
 posematrix_tmp = matrixFromQuat(quatRotateDirection(manipulatordirection, direction))
 print posematrix_tmp
 print tbasematrix
@@ -26,7 +26,13 @@ posematrix[0:3,3] = position
 tTarget = numpy.eye(4)
 grasper.robot.SetTransform(posematrix)
 
-## pose to direction, position, 
+## pose to direction, position
+pose = posematrix
+direction_2 = numpy.dot(pose[0:3, 0:3], manipulatordirection)
+posematrix_tmp_2 = matrixFromQuat(quatRotateDirection(manipulatordirection, direction_2))
+position_2 = pose[0:3, 3]
+tbasematrix_2 = numpy.dot(numpy.linalg.inv(posematrix_tmp_2), pose)
+roll_2 = numpy.linalg.norm(axisAngleFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3])))
 
 RaveSetDebugLevel(DebugLevel.Debug)
 robot.SetActiveManipulator(manip)
