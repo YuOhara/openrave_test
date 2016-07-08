@@ -14,11 +14,25 @@ grasper = interfaces.Grasper(robot)
 manipulatordirection = manip.GetLocalToolDirection()
 
 standoffs = [0, 0.025]
-position = numpy.array([1, 0, 0])
-posematrix = matrixFromAxisAngle(numpy.array([1, 0, 0]), 0)
+roll= numpy.pi / 4 * 0
+tbasematrix = matrixFromQuat(quatFromAxisAngle(manipulatordirection, roll))
+direction = numpy.array([0, 0, -1])
+position = numpy.array([0.3, 0, 0])
+posematrix_tmp = matrixFromQuat(quatRotateDirection(manipulatordirection, direction))
+print posematrix_tmp
+print tbasematrix
+posematrix = numpy.dot(posematrix_tmp, tbasematrix)
 posematrix[0:3,3] = position
+tTarget = numpy.eye(4)
 grasper.robot.SetTransform(posematrix)
 
+## pose to direction, position, 
+
+RaveSetDebugLevel(DebugLevel.Debug)
+robot.SetActiveManipulator(manip)
+robot.SetTransform(numpy.eye(4))
+robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
 
-contacts,finalconfig,mindist,volume = grasper.Grasp(direction=numpy.array([1, 0, 0]), roll=0, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=None, chuckingdirection=manip.GetChuckingDirection())
+contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+grasper.robot.SetTransform(finalconfig[1])
