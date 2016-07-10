@@ -1,5 +1,5 @@
 <KinBody name="mug">
-  <RotationAxis>1 0 0 90</RotationAxis>
+  <RotationAxis>1 0 0 0</RotationAxis>
   <Body name = "mugbase" type="dynamic">
     <Geom type="trimesh">
       <Data>pc_trans.dae</Data>
