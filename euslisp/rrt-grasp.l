@@ -5,6 +5,30 @@
 (ros::roseus-add-msgs "geometry_msgs")
 (ros::roseus-add-srvs "std_srvs")
 
+(defmethod rrt-jt-multigoal
+  (:collision-free ;; need to implement this
+   ()
+   (not (check-collision :obj *tmp-world**))
+   )
+  )
+
+(defmethod rrt-jt-multigoal
+  (:distance (coords &key (sample-trans-abs nil))
+    (let* ((relative-coords (send (send coords :copy-worldcoords) :inverse-transformation (send trans :copy-worldcoords)))
+           (dist-sum 0))
+      (setq dist-sum (+ dist-sum (* (elt weight 0) (norm (send relative-coords :pos)))))
+      (setq dist-sum (+ dist-sum (* (elt weight 1) (norm (v* (matrix-column (send relative-coords :rot) 0) (float-vector 1 0 0))))))
+      (sqrt dist-sum)
+      )
+    )
+  )
+
+(defun clear-func (s)
+  (send *robot* :rarm :angle-vector (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)))
+  (setq grasp-coords (send *hand-new-endcoords* :copy-worldcoords))
+  (ros::coords->tf-pose  obj)
+  )
+
 (defun init-robot ()
   (hrp2jsknts-init)
   (setq *robot* *hrp2jsknts*)
@@ -16,6 +40,7 @@
          :coords
          (send (send (send *robot* :rarm :end-coords) :copy-worldcoords) :transform (send *hand-coords* :inverse-tranformation) :local)
          :parent (send (send *robot* :rarm :end-coords) :parent)))
+  (send *robot* :fix-leg-to-coords (make-coords))
   )
 
 
