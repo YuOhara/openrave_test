@@ -1,5 +1,4 @@
 from openravepy import *
-from openrave_test_utility import *
 import numpy, time
 import rospy
 from jsk_recognition_msgs.msg import BoundingBox
@@ -8,7 +7,6 @@ import geometry_msgs.msg
 import tf
 from tf import transformations
 import commands
-
 
 def return_box_approach_rays(gmodel, box):
     # ode gives the most accurate rays
@@ -116,3 +114,18 @@ def return_sphere_approach_rays(gmodel, box):
             return approachrays
     finally:
         cc.DestroyEnvironment()
+
+def poseFromGraspParams(direction, roll, position, manipulatordirection):
+    tbasematrix = matrixFromQuat(quatFromAxisAngle(manipulatordirection, roll))
+    posematrix_tmp = matrixFromQuat(quatRotateDirection(manipulatordirection, direction))
+    posematrix = numpy.dot(posematrix_tmp, tbasematrix)
+    posematrix[0:3,3] = position
+    return posematrix
+
+def graspParamsFromPose(pose, manipulatordirectiono):
+    direction_2 = numpy.dot(pose[0:3, 0:3], manipulatordirection)
+    posematrix_tmp_2 = matrixFromQuat(quatRotateDirection(manipulatordirection, direction_2))
+    position_2 = pose[0:3, 3]
+    tbasematrix_2 = numpy.dot(numpy.linalg.inv(posematrix_tmp_2), pose)
+    roll_2 = numpy.linalg.norm(axisAngleFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3])))
+    return direction_2, roll_2, position_2

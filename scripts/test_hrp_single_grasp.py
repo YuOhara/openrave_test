@@ -16,12 +16,15 @@ grasper = interfaces.Grasper(robot)
 manipulatordirection = manip.GetLocalToolDirection()
 
 standoffs = [0, 0.025]
-direction = numpy.array([0, 0, -1])
+direction = numpy.array([-1, 0, 1])
 roll= numpy.pi / 4 * 2
 position = numpy.array([0.3, 0, 0])
 
+posematrix = poseFromGraspParams(direction, roll, position, manipulatordirection)
+grasper.robot.SetTransform(posematrix)
+
 RaveSetDebugLevel(DebugLevel.Debug)
-robot.SetActiveManipulator(manip)
+obot.SetActiveManipulator(manip)
 robot.SetTransform(numpy.eye(4))
 robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
