@@ -1,0 +1,4 @@
+geometry_msgs/PoseStamped pose_stamped
+---
+geometry_msgs/PoseStamped assessed_pose_stamped
+float32 assessment_point

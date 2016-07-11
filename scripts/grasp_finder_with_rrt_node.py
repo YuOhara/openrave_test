@@ -7,8 +7,10 @@ import rospy
 from jsk_recognition_msgs.msg import BoundingBox
 from std_srvs.srv import Empty
 import geometry_msgs.msg
+from geometry_msgs.msg import *
 import tf
 from tf import transformations
+from openrave_test.srv import GraspAssess
 import commands
 
 
@@ -54,6 +56,7 @@ def callback(box):
     print check
     check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae $(rospack find openrave_test)/scripts/tmp_model_estimated.l")
     # print check
+    global env, robot, target1, target2, taskmanip
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
@@ -62,39 +65,55 @@ def callback(box):
     target2 = env.GetKinBody('mug2')
     taskmanip = interfaces.TaskManipulation(robot)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
-    target2.IsEnable(False)
+    target1.IsEnable(False)
     approachrays = return_box_approach_rays(gmodel, box)
+    pose_array_msg = PoseArray()
     for approachray in approachrays:
+        pose_msg = Pose()
         matrix = poseFromGraspParams(approachray[3:6], 0, approachray[0:3])
         quat = quatFromMatrix(matrix)
         pos = matrix[0:3,3]
+        pose_msg.position = geometry_msgs::Position(pos[0], pos[1], pos[2])
+        pose_msg.orientation = geometry_msgs::Quarternion(rot[1], rot[2], rot[3], rot[0])
+        pose_array_msg.poses.append(pose_msg)
+    pose_array_msg.header = box.header
+    approarch_array_pub.publish(pose_array_msg)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
-
-def publish_result(gmodel):
-    result = gmodel.grasps
-    print "the total grasp is %d" % len(result)
-    i = 0
-    pose_array = geometry_msgs.msg.PoseArray()
-    for grasp in result:
-        Tgrasp = gmodel.getGlobalGraspTransform(grasp)
-        xyz = tuple(transformations.translation_from_matrix(Tgrasp))[:3]
-        quat = tuple(transformations.quaternion_from_matrix(Tgrasp))
-        # assemble return value PoseStampe
-        pose_array.poses.append(geometry_msgs.msg.Pose(geometry_msgs.msg.Point(*xyz), geometry_msgs.msg.Quaternion(*quat)))
-    pose_array.header.frame_id = "/kinfu_origin"
-    pose_array.header.stamp = rospy.Time.now()
-    grasp_array_pub.publish(pose_array)
-    rospy.on_shutdown(shut_down_hook)
 
 def shut_down_hook():
     print "shutting down node"
 
+def grasp_assess_service(req):
+    # do not need to change frame
+    pos_msg = req.pose_stamped.pose.position
+    rot_msg = req.pose_stamped.pose.orientation
+    pos_array = numpy.array([pos_msg.x, pos_msg.y, pos_msg.z])
+    rot_array = numpy.array([rot_msg.w, rot_msg.x, rot_msg.y, rot_msg.z])
+    pose_mat = matrixFromQuat(rot_array)
+    pose_mat[0:3, 3] = pos_array
+    direction, roll, position = graspParamsFromPose(pose)
+    standoffs = [0, 0.025]
+    contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+    res = GraspAssessResponse()
+    if finalconfig:
+        res.assessment_point = mindist
+        pose_msg = Pose()
+        matrix = finalconfig[1]
+        quat = quatFromMatrix(matrix)
+        pos = matrix[0:3,3]
+        pose_msg.position = geometry_msgs::Position(pos[0], pos[1], pos[2])
+        pose_msg.orientation = geometry_msgs::Quarternion(rot[1], rot[2], rot[3], rot[0])
+        res.grasp_pose_stamped = pose_msg
+    else:
+        res.assessment_point = -100
+    return res
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
-    global grasp_array_pub
-    grasp_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray)
+    global pose_array_pub
+    pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
+    rospy.Service('/grasp_assess', GraspAssess, grasp_assess_service)
     rospy.spin()
 
 
