@@ -73,8 +73,8 @@ def callback(box):
         matrix = poseFromGraspParams(approachray[3:6], 0, approachray[0:3])
         quat = quatFromMatrix(matrix)
         pos = matrix[0:3,3]
-        pose_msg.position = geometry_msgs::Position(pos[0], pos[1], pos[2])
-        pose_msg.orientation = geometry_msgs::Quarternion(rot[1], rot[2], rot[3], rot[0])
+        pose_msg.position = Position(pos[0], pos[1], pos[2])
+        pose_msg.orientation = Quarternion(rot[1], rot[2], rot[3], rot[0])
         pose_array_msg.poses.append(pose_msg)
     pose_array_msg.header = box.header
     approarch_array_pub.publish(pose_array_msg)
@@ -102,8 +102,8 @@ def grasp_assess_service(req):
         matrix = finalconfig[1]
         quat = quatFromMatrix(matrix)
         pos = matrix[0:3,3]
-        pose_msg.position = geometry_msgs::Position(pos[0], pos[1], pos[2])
-        pose_msg.orientation = geometry_msgs::Quarternion(rot[1], rot[2], rot[3], rot[0])
+        pose_msg.position = Position(pos[0], pos[1], pos[2])
+        pose_msg.orientation = Quarternion(rot[1], rot[2], rot[3], rot[0])
         res.grasp_pose_stamped = pose_msg
     else:
         res.assessment_point = -100
