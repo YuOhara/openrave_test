@@ -4,6 +4,8 @@
 (load "~/prog/euslib/demo/ohara/motion_plan/euslisp/util.l")
 (ros::roseus-add-msgs "geometry_msgs")
 (ros::roseus-add-srvs "std_srvs")
+(ros::roseus-add-srvs "openrave_test")
+
 
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
@@ -23,10 +25,22 @@
     )
   )
 
+(setq *final-res* nil)
 (defun clear-func (s)
   (send *robot* :rarm :angle-vector (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)))
   (setq grasp-coords (send *hand-new-endcoords* :copy-worldcoords))
-  (ros::coords->tf-pose  obj)
+  (let*
+      ((pose-msg (ros::coords->tf-pose  obj))
+       (req (instance openrave_test::GraspAssess :init))
+       res)
+    (send req :pose_stamped (instance geometry_msgs::PoseStamped :init :pose pose-msg :header (instance std_msgs::Header :init :frame_id "ground" :stamp (ros::time-now))))
+    (setq res (ros::service-call "/grasp_assess" req))
+    (if (> (send res :assessment_point) 1e-4)
+        (progn (return-from clear-func t)
+               (setq *final-res* res))
+      (return-from clear-func nil)
+      )
+    )
   )
 
 (defun init-robot ()
@@ -49,6 +63,7 @@
   (callback2 *msg*)
   )
 
+
 (defun callback2 (msg)
   ;; transform to robot frame
   (send *robot* :fix-leg-to-coords (make-coords))
@@ -63,14 +78,25 @@
   (send *tmp-world* :newcoords (send trans-ground->kinfu :copy-worldcoords))
   (objects (list *robot* *tmp-world*))
   (setq lst nil)
-  (let (ik-result)
-    (dolist (obj (send msg :poses))
-      (let ((trs
-             (send (send trans-ground->kinfu :copy-worldcoords)
-                   :transform (ros::tf-pose->coords  obj))))
-        (push trs lst)
+  (setq *wgrs* nil)
+  (dolist (obj (send msg :poses))
+    (let ((trs
+           (send (send trans-ground->kinfu :copy-worldcoords)
+                 :transform (ros::tf-pose->coords  obj))))
+      (push trs lst)
+      (push
+        (instance workspace-goal-region :init trs :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
+       *wgrs*)
         ))
-    )
+  (send *robot* :reset-pose)
+  (send *robot* :fix-leg-to-coords (make-coords))
+  (setq *solver*
+        (instance rrt-jt-multigoal :init
+                  *robot*
+                  :rarm
+                  *wgrs*
+                  ))
+
   )
 
 (ros::roseus "sample-grasp-node")
