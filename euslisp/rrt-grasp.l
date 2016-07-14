@@ -10,7 +10,7 @@
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
    ()
-   (not (check-collision :obj *tmp-world**))
+   (not (check-collision :obj *tmp-world*))
    )
   )
 
@@ -26,22 +26,39 @@
   )
 
 (setq *final-res* nil)
-(defun clear-func (s)
-  (send *robot* :rarm :angle-vector (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)))
-  (setq grasp-coords (send *hand-new-endcoords* :copy-worldcoords))
-  (let*
-      ((pose-msg (ros::coords->tf-pose  obj))
-       (req (instance openrave_test::GraspAssess :init))
-       res)
-    (send req :pose_stamped (instance geometry_msgs::PoseStamped :init :pose pose-msg :header (instance std_msgs::Header :init :frame_id "ground" :stamp (ros::time-now))))
-    (setq res (ros::service-call "/grasp_assess" req))
-    (if (> (send res :assessment_point) 1e-4)
-        (progn (return-from clear-func t)
-               (setq *final-res* res))
-      (return-from clear-func nil)
+
+(defmethod rrt-jt-multigoal
+  (:clear-func (s)
+    (ros::ros-info "try clear func!")
+    (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
+    ;; (setq grasp-coords (send *hand-new-endcoords* :copy-worldcoords))
+    (send *irtviewer* :draw-objects)
+    (setq grasp-coords (send (send robot arm :end-coords :copy-worldcoords) :transform (send (send *hand-coords* :copy-worldcoords) :inverse-transformation)))
+    (setq grasp-coords (send (send (send trans-ground->kinfu :copy-worldcoords) :inverse-transformation)
+          :transform grasp-coords))
+    (let*
+        ((pose-msg (ros::coords->tf-pose grasp-coords))
+         (req (instance openrave_test::GraspAssessRequest :init))
+         res)
+      (send req :pose_stamped (instance geometry_msgs::PoseStamped :init :pose pose-msg :header (instance std_msgs::Header :init :frame_id "ground" :stamp (ros::time-now))))
+      (setq res (ros::service-call "/grasp_assess" req))
+      (setq *res* res)
+      (read-line)
+      (if (> (send res :assessment_point) 1e-4)
+          (progn
+            (setq *final-res* res)
+            (send *robot* :rarm :inverse-kinematics (send (send (send trans-ground->kinfu :copy-worldcoords) :transform (ros::tf-pose->coords (send *final-res* :assessed_pose_stamped :pose))) :transform (send *hand-coords* :copy-worldcoords)))
+            (return-from :clear-func t)
+            )
+        (return-from :clear-funces nil)
+        )
       )
     )
+  (:ik-func (robot arm coords)
+    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis :x)
+    )
   )
+
 
 (defun init-robot ()
   (hrp2jsknts-init)
@@ -52,7 +69,7 @@
   (setq *hand-new-endcoords*
         (make-cascoords
          :coords
-         (send (send (send *robot* :rarm :end-coords) :copy-worldcoords) :transform (send *hand-coords* :inverse-tranformation) :local)
+         (send (send (send (send *robot* :rarm :end-coords) :copy-worldcoords) :translate (float-vector 60 -60 0) :local) :rotate (deg2rad 45) :z)
          :parent (send (send *robot* :rarm :end-coords) :parent)))
   (send *robot* :fix-leg-to-coords (make-coords))
   )
@@ -62,7 +79,6 @@
   (setq *msg* msg)
   (callback2 *msg*)
   )
-
 
 (defun callback2 (msg)
   ;; transform to robot frame
@@ -83,20 +99,25 @@
     (let ((trs
            (send (send trans-ground->kinfu :copy-worldcoords)
                  :transform (ros::tf-pose->coords  obj))))
+      (send trs :translate (float-vector 0 0 -70)) ;; offset for avoid collision
+      (send trs :rotate (deg2rad -90) :y)
       (push trs lst)
       (push
         (instance workspace-goal-region :init trs :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
        *wgrs*)
         ))
-  (send *robot* :reset-pose)
+  (send *robot* :reset-manip-pose)
   (send *robot* :fix-leg-to-coords (make-coords))
   (setq *solver*
         (instance rrt-jt-multigoal :init
                   *robot*
                   :rarm
                   *wgrs*
+                  :stop 2000
+                  :end-coords *hand-new-endcoords*
                   ))
-
+  ;; (setf (send *robot* :rarm :end-coords) *hand-new-endcoords*)
+  (setq *ret* (send *solver* :solve))
   )
 
 (ros::roseus "sample-grasp-node")

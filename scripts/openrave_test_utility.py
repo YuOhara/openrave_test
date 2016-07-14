@@ -122,7 +122,7 @@ def poseFromGraspParams(direction, roll, position, manipulatordirection):
     posematrix[0:3,3] = position
     return posematrix
 
-def graspParamsFromPose(pose, manipulatordirectiono):
+def graspParamsFromPose(pose, manipulatordirection):
     direction_2 = numpy.dot(pose[0:3, 0:3], manipulatordirection)
     posematrix_tmp_2 = matrixFromQuat(quatRotateDirection(manipulatordirection, direction_2))
     position_2 = pose[0:3, 3]
