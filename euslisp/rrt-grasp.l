@@ -30,9 +30,8 @@
 (defmethod rrt-jt-multigoal
   (:clear-func (s)
     (ros::ros-info "try clear func!")
-    (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
-    ;; (setq grasp-coords (send *hand-new-endcoords* :copy-worldcoords))
-    (send *irtviewer* :draw-objects)
+    ;; (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
+    ; (send *irtviewer* :draw-objects)
     (setq grasp-coords (send (send robot arm :end-coords :copy-worldcoords) :transform (send (send *hand-coords* :copy-worldcoords) :inverse-transformation)))
     (setq grasp-coords (send (send (send trans-ground->kinfu :copy-worldcoords) :inverse-transformation)
           :transform grasp-coords))
@@ -43,19 +42,20 @@
       (send req :pose_stamped (instance geometry_msgs::PoseStamped :init :pose pose-msg :header (instance std_msgs::Header :init :frame_id "ground" :stamp (ros::time-now))))
       (setq res (ros::service-call "/grasp_assess" req))
       (setq *res* res)
-      (read-line)
-      (if (> (send res :assessment_point) 1e-4)
+      ;; (read-line)
+      (if (> (send res :assessment_point) 1e-6)
           (progn
             (setq *final-res* res)
             (send *robot* :rarm :inverse-kinematics (send (send (send trans-ground->kinfu :copy-worldcoords) :transform (ros::tf-pose->coords (send *final-res* :assessed_pose_stamped :pose))) :transform (send *hand-coords* :copy-worldcoords)))
+            (send *irtviewer* :draw-objects)
             (return-from :clear-func t)
             )
-        (return-from :clear-funces nil)
+        (return-from :clear-func nil)
         )
       )
     )
   (:ik-func (robot arm coords)
-    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis :x)
+    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis :z)
     )
   )
 
@@ -65,13 +65,14 @@
   (setq *robot* *hrp2jsknts*)
   (unless (boundp '*tfl*)
     (setq *tfl* (instance ros::transform-listener :init)))
-  (setq *hand-coords*  (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -150)) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
+  (setq *hand-coords*  (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
   (setq *hand-new-endcoords*
         (make-cascoords
          :coords
-         (send (send (send (send *robot* :rarm :end-coords) :copy-worldcoords) :translate (float-vector 60 -60 0) :local) :rotate (deg2rad 45) :z)
+         (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :rotate (deg2rad 50) :x)
          :parent (send (send *robot* :rarm :end-coords) :parent)))
   (send *robot* :fix-leg-to-coords (make-coords))
+  (send *robot* :hand :rarm :hook-pose)
   )
 
 
@@ -82,7 +83,8 @@
 
 (defun callback2 (msg)
   ;; transform to robot frame
-  (send *robot* :fix-leg-to-coords (make-coords))
+  ;; (send *robot* :fix-leg-to-coords (make-coords))
+  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
   (setq trans-ground->kinfu
         (send *tfl* :lookup-transform
               "/ground"
@@ -100,14 +102,16 @@
            (send (send trans-ground->kinfu :copy-worldcoords)
                  :transform (ros::tf-pose->coords  obj))))
       (send trs :translate (float-vector 0 0 -70)) ;; offset for avoid collision
-      (send trs :rotate (deg2rad -90) :y)
+      ;; (send trs :rotate (deg2rad -90) :y)
+      (send trs :rotate (deg2rad -180) :y)
       (push trs lst)
       (push
         (instance workspace-goal-region :init trs :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
        *wgrs*)
         ))
   (send *robot* :reset-manip-pose)
-  (send *robot* :fix-leg-to-coords (make-coords))
+  ;; (send *robot* :fix-leg-to-coords (make-coords))
+  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
   (setq *solver*
         (instance rrt-jt-multigoal :init
                   *robot*
@@ -118,6 +122,14 @@
                   ))
   ;; (setf (send *robot* :rarm :end-coords) *hand-new-endcoords*)
   (setq *ret* (send *solver* :solve))
+  )
+
+(defun show-motion
+  ()
+  (dolist (state (send-all (send *ret* :solution-nodes) :state))
+    (send *robot* :rarm :angle-vector state)
+    (send *irtviewer* :draw-objects)
+    (read-line))
   )
 
 (ros::roseus "sample-grasp-node")

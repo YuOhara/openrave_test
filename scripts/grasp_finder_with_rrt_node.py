@@ -107,18 +107,21 @@ def grasp_assess_service(req):
     pose_mat = matrixFromQuat(rot_array)
     pose_mat[0:3, 3] = pos_array
     direction, roll, position = graspParamsFromPose(pose_mat, manipulatordirection)
-    grasper.robot.SetTransform(pose_mat)
+    # grasper.robot.SetTransform(pose_mat)
     print "pose mat"
     print pose_mat
     env.UpdatePublishedBodies()
     standoffs = [0, 0.025]
+    robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
     contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
     res = GraspAssessResponse()
     if finalconfig:
-        # grasper.robot.SetTransform(finalconfig[1])
+        grasper.robot.SetTransform(finalconfig[1])
+        robot.SetTransform(finalconfig[1])
+        Tgrasp = manip.GetEndEffectorTransform()
         res.assessment_point = mindist
         pose_msg = Pose()
-        matrix = finalconfig[1]
+        matrix = Tgrasp ##finalconfig[1]
         rot = quatFromRotationMatrix(matrix[0:3, 0:3])
         pos = matrix[0:3,3]
         pose_msg.position = Point(pos[0], pos[1], pos[2])
@@ -126,6 +129,8 @@ def grasp_assess_service(req):
         res.assessed_pose_stamped.pose = pose_msg
         res.assessed_pose_stamped.header = req.pose_stamped.header
         # print finalconfig[1]
+
+     
     else:
         res.assessment_point = -100
     return res

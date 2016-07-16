@@ -5,7 +5,7 @@ from openrave_test_utility import *
 env=Environment()
 env.Load('hrp.env.xml')
 # env.Load('data/lab1.env.xml')
-# env.SetViewer('qtcoin')
+env.SetViewer('qtcoin')
 robot = env.GetRobots()[0]
 target = env.GetKinBody('mug1')
 # gmodel = databases.grasping.GraspingModel(robot,target)
@@ -24,7 +24,7 @@ posematrix = poseFromGraspParams(direction, roll, position, manipulatordirection
 grasper.robot.SetTransform(posematrix)
 
 RaveSetDebugLevel(DebugLevel.Debug)
-obot.SetActiveManipulator(manip)
+robot.SetActiveManipulator(manip)
 robot.SetTransform(numpy.eye(4))
 robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)

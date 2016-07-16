@@ -2,10 +2,10 @@
   <Manipulator name="hand">
     <base>RARM_LINK6</base>
     <effector>RARM_LINK6</effector>
-    <Translation>0 0.04 -0.15</Translation>
+    <Translation>0 0.04 -0.16</Translation>
     <joints>R_THUMBCM_P R_MIDDLEPIP_R R_INDEXCM_R R_INDEXPIP_R</joints>
     <closingdirection>-1 1 1 1</closingdirection>
-    <direction>0 0.7 -0.7</direction>
+    <direction>0 0.766 -0.643</direction>
   </Manipulator>
 <!-- <Robot file="/home/leus/.local/share/Trash/files/usb_back/old/.Trash-999/files/fuerte/jsk-ros-pkg/jsk_model_tools/euscollada/pr2.dae"> -->
 <!-- <Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/SampleRobot.dae"> -->
