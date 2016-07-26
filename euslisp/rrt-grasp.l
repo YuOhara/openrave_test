@@ -20,7 +20,19 @@
            (dist-sum 0))
       (setq dist-sum (+ dist-sum (* (elt weight 0) (norm (send relative-coords :pos)))))
       (setq dist-sum (+ dist-sum (* (elt weight 1) (norm (v* (matrix-column (send relative-coords :rot) 0) (float-vector 1 0 0))))))
-      (sqrt dist-sum)
+      (let* (
+             (quat (matrix2quaternion (send :relative-coords :rot)))
+             (ve (float-vector (elt quat 1) (elt quat 2) (elt quat 3)))
+             (f (sqrt (norm ve)))
+             (theta
+              (* 2.0 (/ (atan2 f (elt quat 1) f)))
+              ))
+        (setq dist-sum (+ dist-sum (* (elt weight 1)
+                                      theta
+                                      )))
+        )
+      ;; (sqrt dist-sum)
+      dist-sum
       )
     )
   )
@@ -30,8 +42,8 @@
 (defmethod rrt-jt-multigoal
   (:clear-func (s)
     (ros::ros-info "try clear func!")
-    ;; (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
-    ; (send *irtviewer* :draw-objects)
+    (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
+    (send *irtviewer* :draw-objects)
     (setq grasp-coords (send (send robot arm :end-coords :copy-worldcoords) :transform (send (send *hand-coords* :copy-worldcoords) :inverse-transformation)))
     (setq grasp-coords (send (send (send trans-ground->kinfu :copy-worldcoords) :inverse-transformation)
           :transform grasp-coords))
@@ -55,7 +67,7 @@
       )
     )
   (:ik-func (robot arm coords)
-    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis :z)
+    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
     )
   )
 
@@ -104,14 +116,19 @@
       (send trs :translate (float-vector 0 0 -70)) ;; offset for avoid collision
       ;; (send trs :rotate (deg2rad -90) :y)
       (send trs :rotate (deg2rad -180) :y)
-      (push trs lst)
-      (push
-        (instance workspace-goal-region :init trs :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
-       *wgrs*)
+      (dotimes (i 18)
+        (let
+            ((trs-0 (send (send trs :copy-worldcoords) :rotate (deg2rad (* i 30)) :z)))
+          (push trs-0 lst)
+          (push
+           (instance workspace-goal-region :init trs-0 :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
+           *wgrs*)
+          )
+        )
         ))
   (send *robot* :reset-manip-pose)
   ;; (send *robot* :fix-leg-to-coords (make-coords))
-  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
+  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))
   (setq *solver*
         (instance rrt-jt-multigoal :init
                   *robot*

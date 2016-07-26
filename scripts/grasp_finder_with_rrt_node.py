@@ -68,6 +68,7 @@ def callback(box):
     robot = env.GetRobots()[0]
     target1 = env.GetKinBody('mug1')
     target2 = env.GetKinBody('mug2')
+    # robot.GetLink("RARM_LINK6").Enable(False)
     taskmanip = interfaces.TaskManipulation(robot)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
     manip = robot.GetActiveManipulator()
@@ -81,16 +82,29 @@ def callback(box):
     grasper = interfaces.Grasper(robot)
     for approachray in approachrays:
         pose_msg = Pose()
-        matrix = poseFromGraspParams(approachray[3:6], 0, approachray[0:3], manipulatordirection)
-        # matrix = numpy.dot(matrix, mat44_ground_kinfu)
-        quat = quatFromRotationMatrix(matrix[0:3, 0:3])
-        pos = matrix[0:3,3]
-        pose_msg.position = Point(pos[0], pos[1], pos[2])
-        pose_msg.orientation = Quaternion(quat[1], quat[2], quat[3], quat[0])
-        pose_array_msg.poses.append(pose_msg)
+        matrix = None
+        if False:
+            matrix = poseFromGraspParams(approachray[3:6], 0, approachray[0:3], manipulatordirection)
+            # matrix = numpy.dot(matrix, mat44_ground_kinfu)
+        else:
+            rolls = [0, numpy.pi/4, numpy.pi/2, numpy.pi*3/4]
+            for roll in rolls:
+                standoffs = [0, 0.025]
+                grasper.robot.SetTransform(poseFromGraspParams(-approachray[3:6], roll, approachray[0:3], manipulatordirection))
+                contacts,finalconfig,mindist,volume = grasper.Grasp(direction=approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                print "hoge"
+                if finalconfig and (mindist > 1e-9):
+                    matrix = finalconfig[1]
+                else:
+                    pass
+        if not (matrix == None):
+            pose_array_msg.poses.append(matrix2pose(matrix))
     pose_array_msg.header = box.header
     # pose_array_msg.header.frame_id = "ground"
     pose_array_pub.publish(pose_array_msg)
+    print "Finished"
+    print "Num!"
+    print len(pose_array_msg.poses)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 
@@ -113,7 +127,11 @@ def grasp_assess_service(req):
     env.UpdatePublishedBodies()
     standoffs = [0, 0.025]
     robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
+    target1.Enable(True)
+    target2.Enable(False)
     contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+    print "mindist1!"
+    print mindist
     res = GraspAssessResponse()
     if finalconfig:
         grasper.robot.SetTransform(finalconfig[1])
@@ -122,15 +140,29 @@ def grasp_assess_service(req):
         res.assessment_point = mindist
         pose_msg = Pose()
         matrix = Tgrasp ##finalconfig[1]
-        rot = quatFromRotationMatrix(matrix[0:3, 0:3])
-        pos = matrix[0:3,3]
-        pose_msg.position = Point(pos[0], pos[1], pos[2])
-        pose_msg.orientation = Quaternion(rot[1], rot[2], rot[3], rot[0])
-        res.assessed_pose_stamped.pose = pose_msg
+        res.assessed_pose_stamped.pose = matrix2pose(matrix)
         res.assessed_pose_stamped.header = req.pose_stamped.header
         # print finalconfig[1]
-
-     
+        ## start 2nd
+        target1.Enable(False)
+        target2.Enable(True)
+        robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
+        direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
+        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+        if finalconfig:
+            grasper.robot.SetTransform(finalconfig[1])
+            Tgrasp = manip.GetEndEffectorTransform()
+            ## debug
+            print "min dists!"
+            print res.assessment_point, mindist
+            res.assessment_point = numpy.min([res.assessment_point, mindist])
+            pose_msg = Pose()
+            matrix = Tgrasp ##finalconfig[1]
+            res.assessed_pose_stamped.pose = matrix2pose(matrix)
+            res.assessed_pose_stamped.header = req.pose_stamped.header
+        else:
+            res.assessment_point = -100
+        ## end second
     else:
         res.assessment_point = -100
     return res
@@ -143,6 +175,13 @@ def grasp_finder():
     rospy.Service('/grasp_assess', GraspAssess, grasp_assess_service)
     rospy.spin()
 
+
+def matrix2pose(matrix):
+    rot = quatFromRotationMatrix(matrix[0:3, 0:3])
+    pos = matrix[0:3,3]
+    pose_msg = Pose()
+    pose_msg.position = Point(pos[0], pos[1], pos[2])
+    pose_msg.orientation = Quaternion(rot[1], rot[2], rot[3], rot[0])
 
 if __name__ == '__main__':
     grasp_finder()
