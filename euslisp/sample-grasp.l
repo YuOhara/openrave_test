@@ -8,7 +8,7 @@
   (setq *robot* *hrp2jsknts*)
   (unless (boundp '*tfl*)
     (setq *tfl* (instance ros::transform-listener :init)))
-  (setq *hand-coords*  (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -150)) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
+  (setq *hand-coords*  (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
   )
 
 (defun callback (msg)

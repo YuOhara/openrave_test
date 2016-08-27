@@ -24,7 +24,7 @@ posematrix = poseFromGraspParams(direction, roll, position, manipulatordirection
 grasper.robot.SetTransform(posematrix)
 
 RaveSetDebugLevel(DebugLevel.Debug)
-obot.SetActiveManipulator(manip)
+robot.SetActiveManipulator(manip)
 robot.SetTransform(numpy.eye(4))
 robot.SetDOFValues([90, 90, 0, 0, 0, 0])
 robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)

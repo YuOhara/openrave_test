@@ -47,7 +47,7 @@ def callback(box):
         quat = tuple(transformations.quaternion_from_matrix(txpose))
         # assemble return value PoseStampe
         box.pose = geometry_msgs.msg.Pose(geometry_msgs.msg.Point(*xyz), geometry_msgs.msg.Quaternion(*quat))
-        box.header = "kinfu_origin"
+        box.header.frame_id = "kinfu_origin"
         #target.SetTransform(numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot)))
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
         print "tf error: %s" % e
@@ -83,17 +83,18 @@ def callback(box):
     target1 = env.GetKinBody('mug1')
     gmodel1 = databases.grasping.GraspingModel(robot,target1)
     target2 = env.GetKinBody('mug2')
-    gmodel2 = databases.grasping.GraspingModel(robot,target1)
+    target2.Enable(False)
+    # gmodel2 = databases.grasping.GraspingModel(robot,target1)
     taskmanip = interfaces.TaskManipulation(robot)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
     # gmodel.generate(*gmodel.autogenerateparams())
     approachrays = return_box_approach_rays(gmodel1, box)
     gmodel1.generate(*return_rave_params(gmodel1, box, approachrays = approachrays))
-    gmodel2.generate(*return_rave_params(gmodel2, box, approachrays = approachrays))
+    # gmodel2.generate(*return_rave_params(gmodel2, box, approachrays = approachrays))
     publish_result(gmodel1)
     gmodel1.save()
-    publish_result(gmodel2)
-    gmodel2.save()
+    # publish_result(gmodel2)
+    # gmodel2.save()
     ## respected to frame, kinfu outputs with camera frame.
 
 def publish_result(gmodel):

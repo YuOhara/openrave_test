@@ -1,0 +1,10 @@
+<launch>
+  <include file="$(find openrave_test)/launch/kinfu2.launch">
+    <arg name="INPUT" default="/camera_remote/depth_registered/hw_registered/image_rect_raw" />
+    <arg name="INFO" default="/camera/depth/camera_info" />
+    <!-- <arg name="INPUT" value="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" /> -->
+    <!-- <arg name="INFO" value="/camera_remote/rgb_half/camera_info"/> -->
+    <arg name="POINTS" value="/camera_remote/depth_registered/points" />
+  </include>
+  <include file="$(find openrave_test)/launch/boundingbox_filter.launch" />
+</launch>
