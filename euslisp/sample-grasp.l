@@ -1,5 +1,6 @@
 (load "package://hrpsys_ros_bridge_tutorials/euslisp/hrp2jsknts-interface.k")
 (ros::roseus-add-msgs "geometry_msgs")
+(ros::roseus-add-msgs "jsk_recognition_msgs")
 (ros::roseus-add-srvs "std_srvs")
 
 (defun init-robot ()
@@ -52,11 +53,78 @@
     )
   )
 
+(setq *right-obstacle* :unknown)
+(setq *left-obstacle* :unknown)
+
+(defun indice-callback
+  (msg)
+  (setq *right-obstacle* :unknown)
+  (setq *left-obstacle* :unknown)
+  (if (equal (length (send (elt (send msg :cluster_indices) 1) :indices)) 0)
+      (setq *right-obstacle* nil)
+    (setq *right-obstacle* :clouded)
+    )
+  (if (equal (length (send (elt (send msg :cluster_indices) 0) :indices)) 0)
+      (setq *left-obstacle* nil)
+    (setq *left-obstacle* :clouded)
+    )
+  )
+(defun renew-obstacle
+  ()
+  (setq *right-obstacle* :unknown)
+  (setq *left-obstacle* :unknown)
+  (ros::spin-once)
+  )
+
+(defun move-right
+  ()
+  (renew-obstacle)
+  (if (equal *right-obstacle* nil)
+      (progn 
+        (send *ri* :go-pos 0.155 -0.269 15)
+        :go-success
+        )
+    )
+  nil
+  )
+
+(defun move-left
+  ()
+  (renew-obstacle)
+  (if (equal *right-obstacle* nil)
+      (send *ri* :go-pos 0.155 0.269 -15)
+    :go-success
+    )
+  nil
+  )
+
+(defun move-head
+  ()
+  (send *robot* :angle-vector (send *ri* :state :reference-vector))
+  (send *robot* :head :neck-y :joint-angle 20)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 4000)
+  (send *ri* :wait-interpolation)
+  (send *robot* :head :neck-y :joint-angle -20)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 4000)
+  (send *ri* :wait-interpolation)
+  (send *robot* :head :neck-y :joint-angle 0)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 4000)
+  (send *ri* :wait-interpolation)
+
+  )
+
+(defun move-head-down
+  ()
+  (send *robot* :angle-vector (send *ri* :state :reference-vector))
+  (send *robot* :head :neck-p :joint-angle 40)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 4000)
+  (send *ri* :wait-interpolation)
+  )
 
 (defun fullbody-ik
   (tc-hand)
-  (send *robot* :fix-leg-to-coords (make-coords))
   (send *robot* :reset-manip-pose)
+  (send *robot* :fix-leg-to-coords (make-coords))
   (let (tc)
     (setq tc
           (list
@@ -111,8 +179,8 @@
          lleg-coords-new rleg-coords-new
          footstep-list
          )
-    (send *robot* :lleg :move-end-pos #f(0 -25 0) :world)
-    (send *robot* :rleg :move-end-pos #f(0 25 0) :world)
+    (send *robot* :lleg :move-end-pos #f(0 50 0) :world)
+    (send *robot* :rleg :move-end-pos #f(0 0 0) :world)
     (send *irtviewer* :draw-objects)
     (setq lleg-coords-new (send (send *robot* :lleg :end-coords) :copy-worldcoords))
     (setq rleg-coords-new (send (send *robot* :rleg :end-coords) :copy-worldcoords))
@@ -120,11 +188,28 @@
     (send rleg-coords-orig :name :rleg)
     (send lleg-coords-new :name :lleg)
     (send rleg-coords-new :name :rleg)
-    (setq footstep-list (list rleg-coords-orig lleg-coords-new rleg-coords-new))
+    (setq footstep-list (list rleg-coords-orig lleg-coords-new))
     (send *ri* :set-foot-steps footstep-list)
     )
+  )
+
+
+(defun left-foot
+  ()
+  (send *ri* :set-auto-balancer-param :default-zmp-offsets (list (float-vector 0 50 0) (float-vector 0 50 0) (float-vector 0 0 0) (float-vector 0 0 0)))
+  )
+
+(defun middle-foot
+  ()
+  (send *ri* :set-auto-balancer-param :default-zmp-offsets (list (float-vector 0 0 0) (float-vector 0 0 0) (float-vector 0 0 0) (float-vector 0 0 0)))
+  )
+
+(defun right-foot
+  ()
+  (send *ri* :set-auto-balancer-param :default-zmp-offsets (list (float-vector 0 -50 0) (float-vector 0 -50 0) (float-vector 0 0 0) (float-vector 0 0 0)))
   )
 
 (ros::roseus "sample-grasp-node")
 (init-robot)
 (ros::subscribe "/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
+(ros::subscribe "/attention_clipper/output/cluster_point_indices" jsk_recognition_msgs::ClusterPointIndices #'indice-callback)
