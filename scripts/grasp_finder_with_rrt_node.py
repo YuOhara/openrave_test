@@ -12,7 +12,7 @@ import tf
 from tf import transformations
 from openrave_test.srv import *
 import commands
-
+from pickle import *
 
 def callback(box):
     print "callback start!"
@@ -32,8 +32,8 @@ def callback(box):
         box.header.frame_id = "kinfu_origin"
         #target.SetTransform(numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot)))
         now = rospy.Time(0)
-        listener.waitForTransform('ground', 'kinfu_origin', now, rospy.Duration(2.0))
-        (trans,rot) = listener.lookupTransform('kinfu_origin', 'ground', now)
+        listener.waitForTransform('camera_link', 'kinfu_origin', now, rospy.Duration(2.0))
+        (trans,rot) = listener.lookupTransform('kinfu_origin', 'camera_link', now) # ground->camera_link
         mat44_ground_kinfu = numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot))
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
         print "tf error: %s" % e
@@ -61,8 +61,20 @@ def callback(box):
     print check
     check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae /home/leus/.ros/tmp_model_estimated.l")
     # print check
+    # pickle
+    f = open('/home/leus/.ros/temp_box.txt', 'w')
+    pickle.dump(box, f)
+    f.close()
+    try_grasp()
+
+def try_grasp():
     global env, robot, target1, target2, taskmanip, gmodel, manip, manipulatordirection
     env=Environment()
+    # pickle
+    f = open('/home/leus/.ros/temp_box.txt')
+    box = pickle.load(f)
+    f.close()
+
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
@@ -77,29 +89,57 @@ def callback(box):
     target2.SetVisible(False)
     gmodel = databases.grasping.GraspingModel(robot,target1)
     approachrays = return_box_approach_rays(gmodel, box)
-    pose_array_msg = PoseArray()
+    pose_array_msg = geometry_msgs.msg.PoseArray()
     global grasper
     grasper = interfaces.Grasper(robot)
+    len_approach = len(approachrays)
+    try_num = 0
     for approachray in approachrays:
         pose_msg = Pose()
         matrix = None
+        mindist2 = -0.1
         if False:
-            matrix = poseFromGraspParams(approachray[3:6], 0, approachray[0:3], manipulatordirection)
-            # matrix = numpy.dot(matrix, mat44_ground_kinfu)
+            matrix = poseFromGraspParams(-approachray[3:6], 0, approachray[0:3], manipulatordirection)
+            mindist = mindist2 = 1.0
         else:
             rolls = [0, numpy.pi/4, numpy.pi/2, numpy.pi*3/4]
             for roll in rolls:
+                robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
+                print "try %d/%d" % (try_num, len_approach*4)
+                try_num = try_num + 1
                 standoffs = [0, 0.025]
                 grasper.robot.SetTransform(poseFromGraspParams(-approachray[3:6], roll, approachray[0:3], manipulatordirection))
-                contacts,finalconfig,mindist,volume = grasper.Grasp(direction=approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                target1.Enable(True)
+                target2.Enable(False)
+                contacts,finalconfig,mindist,volume = grasper.Grasp(direction=-approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                if finalconfig:
+                    grasper.robot.SetTransform(finalconfig[1])
+                print "try end!"
+                if False:
+                    grasper.robot.SetTransform(finalconfig[1])
+                    robot.SetTransform(finalconfig[1])
+                    Tgrasp = manip.GetEndEffectorTransform()
+                    pose_msg = Pose()
+                    matrix = Tgrasp ##finalconfig[1]
+                    # print finalconfig[1]
+                    ## start 2nd
+                    target1.Enable(False)
+                    target2.Enable(True)
+                    robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
+                    direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
+                    contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                else:
+                    mindist2 = 1.0
                 print "hoge"
+                print mindist, mindist2
                 if finalconfig and (mindist > 1e-9):
                     matrix = finalconfig[1]
                 else:
                     pass
-        if not (matrix == None):
+        if mindist > 1e-9 and mindist2 > 1e-9 and (not (matrix == None)):
             pose_array_msg.poses.append(matrix2pose(matrix))
     pose_array_msg.header = box.header
+    pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
     pose_array_pub.publish(pose_array_msg)
     print "Finished"
@@ -170,18 +210,19 @@ def grasp_assess_service(req):
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
     global pose_array_pub
-    pose_array_pub = rospy.Publisher('/grasp_caluculation_result', PoseArray, latch=True)
+    pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Service('/grasp_assess', GraspAssess, grasp_assess_service)
-    rospy.spin()
 
 
 def matrix2pose(matrix):
-    rot = quatFromRotationMatrix(matrix[0:3, 0:3])
+    quat = quatFromRotationMatrix(matrix[0:3, 0:3])
     pos = matrix[0:3,3]
     pose_msg = Pose()
     pose_msg.position = Point(pos[0], pos[1], pos[2])
-    pose_msg.orientation = Quaternion(rot[1], rot[2], rot[3], rot[0])
+    pose_msg.orientation = Quaternion(quat[1], quat[2], quat[3], quat[0])
+    return pose_msg
 
 if __name__ == '__main__':
     grasp_finder()
+    rospy.spin()

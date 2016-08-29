@@ -1,8 +1,8 @@
 <launch>
   <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen">
     <remap from="~input/depth" to="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" />
-    <remap from="~input/color" to="/camera_remote/rgb_half/camera_info" />
-    <remap from="~input/info" to="/camera_remote/depth_registered/points" />
+    <remap from="~input/color" to="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" />
+    <remap from="~input/info" to="/camera_remote/depth/camera_info" />
     <rosparam>
       tsdf_trunc_dist: 0.03
       icp_dist_trans: 0.1
