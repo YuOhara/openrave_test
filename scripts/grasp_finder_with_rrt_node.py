@@ -109,6 +109,7 @@ def try_grasp():
             else:
                 rolls = [0, numpy.pi/2, numpy.pi, numpy.pi*3/2]
                 for roll in rolls:
+                    mindist = mindist2 = -0.1
                     robot.SetActiveManipulator(manip)
                     robot.SetTransform(numpy.eye(4))
                     robot.SetDOFValues(preshape, manip.GetGripperIndices())
@@ -122,29 +123,28 @@ def try_grasp():
                     # print "mindist! %f" % mindist
                     if finalconfig:
                         grasper.robot.SetTransform(finalconfig[1])
-                    if False:
+                    if mindist > 1e-9:
                         grasper.robot.SetTransform(finalconfig[1])
                         Tgrasp = manip.GetEndEffectorTransform()
-                        pose_msg = Pose()
+                        direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
                         matrix = Tgrasp ##finalconfig[1]
                         # print finalconfig[1]
                         ## start 2nd
                         target1.Enable(False)
                         target2.Enable(True)
                         robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
-                        direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
+                        robot.SetTransform(numpy.eye(4))
+                        robot.SetDOFValues(preshape, manip.GetGripperIndices())
+                        robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
                         contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                        print "mindists %f %f" % (mindist, mindist2)
+                        grasper.robot.SetTransform(finalconfig2[1])
+                        env.UpdatePublishedBodies()
+                        raw_input('press any key to continue: ')
                     else:
                         mindist2 = 1.0
                     # print "hoge"
                     # print mindist, mindist2
-                    if finalconfig and (mindist > 1e-9):
-                        matrix = finalconfig[1]
-                        print "hoge %f" % mindist
-                        env.UpdatePublishedBodies()
-                        # raw_input('press any key to continue: ')
-                    else:
-                        pass
                 if mindist > 1e-9 and mindist2 > 1e-9:
                     pose_array_msg.poses.append(matrix2pose(matrix))
     pose_array_msg.header = box.header
