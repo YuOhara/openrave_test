@@ -11,7 +11,7 @@ import tf
 from tf import transformations
 import commands
 
-def return_rave_params(gmodel, box, approachrays = None):
+def return_rave_params(gmodel, box, approachrays=None):
     friction = None
     preshapes = None
     manipulatordirections = None
@@ -31,6 +31,7 @@ def return_rave_params(gmodel, box, approachrays = None):
     forceclosurethreshold=1e-9
     if (approachrays == None):
         approachrays = return_box_approach_rays(gmodel, box)
+    print "lenhoge %d" % len(approachrays)
     return preshapes,standoffs,rolls,approachrays, graspingnoise,forceclosure,forceclosurethreshold,None,manipulatordirections,translationstepmult,finestep,friction,avoidlinks,plannername
 
 def callback(box):
@@ -75,7 +76,17 @@ def callback(box):
     # print check
     # check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae $(rospack find openrave_test)/scripts/tmp_model_estimated.l")
     # print check
+    f = open('/home/leus/.ros/temp_box.txt', 'w')
+    pickle.dump(box, f)
+    f.close()
+    try_grasp()
 
+def try_grasp():
+    global env, robot, target1, target2, taskmanip, gmodel1, gmodel2, manip, manipulatordirection
+    # pickle
+    f = open('/home/leus/.ros/temp_box.txt')
+    box = pickle.load(f)
+    f.close()
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
@@ -88,8 +99,11 @@ def callback(box):
     taskmanip = interfaces.TaskManipulation(robot)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
     # gmodel.generate(*gmodel.autogenerateparams())
-    approachrays = return_box_approach_rays(gmodel1, box)
-    gmodel1.generate(*return_rave_params(gmodel1, box, approachrays = approachrays))
+    # approachrays = return_box_approach_rays(gmodel1, box)
+    # print "lenfuga %d, %f" % (len(approachrays), box.dimensions.x)
+    # approachrays = return_box_approach_rays(gmodel1, box)
+    # print "lenpiyo %d, %f" % (len(approachrays), box.dimensions.x)
+    gmodel1.generate(*return_rave_params(gmodel1, box))
     # gmodel2.generate(*return_rave_params(gmodel2, box, approachrays = approachrays))
     publish_result(gmodel1)
     gmodel1.save()
@@ -121,8 +135,8 @@ def grasp_finder():
     global grasp_array_pub
     grasp_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
-    rospy.spin()
 
 
 if __name__ == '__main__':
     grasp_finder()
+    rospy.spin()

@@ -37,7 +37,7 @@ def return_box_approach_rays(gmodel, box):
             dx = ex * dim.x
             dy = ey * dim.y
             dz = ez * dim.z
-            print dim.x, dim.y, dim.z
+            print "dims! %f %f %f" % (dim.x, dim.y, dim.z)
             sides = numpy.array((numpy.r_[dz, -ez, dx, dy],
                                  numpy.r_[-dz, ez, dx, dy],
                                  numpy.r_[dy, -ey, dx, dz],
