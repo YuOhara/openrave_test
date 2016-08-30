@@ -85,7 +85,7 @@ def try_grasp():
     manip = robot.GetActiveManipulator()
     manipulatordirection = manip.GetLocalToolDirection()
     target2.Enable(False)
-    target2.SetVisible(False)
+    target2.SetVisible(True)
     gmodel = databases.grasping.GraspingModel(robot,target1)
     approachrays = return_box_approach_rays(gmodel, box)
     pose_array_msg = geometry_msgs.msg.PoseArray()
@@ -145,8 +145,8 @@ def try_grasp():
                         mindist2 = 1.0
                     # print "hoge"
                     # print mindist, mindist2
-                if mindist > 1e-9 and mindist2 > 1e-9:
-                    pose_array_msg.poses.append(matrix2pose(matrix))
+                    if mindist > 1e-9 and mindist2 > 1e-9:
+                        pose_array_msg.poses.append(matrix2pose(matrix))
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
