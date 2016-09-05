@@ -13,6 +13,7 @@ from tf import transformations
 from openrave_test.srv import *
 import commands
 from pickle import *
+import sys
 
 def callback(box):
     print "callback start!"
@@ -75,6 +76,11 @@ def try_grasp():
     box = pickle.load(f)
     f.close()
 
+    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+    print check
+    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
+    print check
+
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
@@ -94,7 +100,7 @@ def try_grasp():
     len_approach = len(approachrays)
     print "len %d %d" % (len_approach,  approachrays.shape[0])
     try_num = 0
-    taskmanip.robot.SetDOFValues([90, 90, 0, 0, 0, 0])
+    taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
     for approachray in approachrays:
@@ -114,39 +120,47 @@ def try_grasp():
                     robot.SetTransform(numpy.eye(4))
                     robot.SetDOFValues(preshape, manip.GetGripperIndices())
                     robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
-                    # print "try %d/%d" % (try_num, len_approach*4*2)
+                    sys.stdout.write("\rtry %d/%d " % (try_num, len_approach*4*2))
+                    sys.stdout.flush()
                     try_num = try_num + 1
                     # grasper.robot.SetTransform(poseFromGraspParams(-approachray[3:6], roll, approachray[0:3], manipulatordirection))
-                    target1.Enable(True)
-                    target2.Enable(False)
-                    contacts,finalconfig,mindist,volume = grasper.Grasp(direction=-approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-                    # print "mindist! %f" % mindist
-                    if finalconfig:
-                        grasper.robot.SetTransform(finalconfig[1])
-                    if mindist > 1e-9:
-                        grasper.robot.SetTransform(finalconfig[1])
-                        Tgrasp = manip.GetEndEffectorTransform()
-                        direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
-                        matrix = Tgrasp ##finalconfig[1]
-                        # print finalconfig[1]
-                        ## start 2nd
-                        target1.Enable(False)
-                        target2.Enable(True)
-                        robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
-                        robot.SetTransform(numpy.eye(4))
-                        robot.SetDOFValues(preshape, manip.GetGripperIndices())
-                        robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
-                        contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-                        print "mindists %f %f" % (mindist, mindist2)
-                        grasper.robot.SetTransform(finalconfig2[1])
-                        env.UpdatePublishedBodies()
-                        raw_input('press any key to continue: ')
-                    else:
-                        mindist2 = 1.0
-                    # print "hoge"
-                    # print mindist, mindist2
-                    if mindist > 1e-9 and mindist2 > 1e-9:
-                        pose_array_msg.poses.append(matrix2pose(matrix))
+                    try:
+                        target1.Enable(True)
+                        target2.Enable(False)
+                        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=-approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                        # print "mindist! %f" % mindist
+                        if finalconfig:
+                            grasper.robot.SetTransform(finalconfig[1])
+                        if mindist > 1e-9:
+                            grasper.robot.SetTransform(finalconfig[1])
+                            Tgrasp = manip.GetEndEffectorTransform()
+                            direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
+                            matrix = Tgrasp ##finalconfig[1]
+                            # print finalconfig[1]
+                            ## start 2nd
+                            target1.Enable(False)
+                            target2.Enable(True)
+                            robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
+                            robot.SetTransform(numpy.eye(4))
+                            robot.SetDOFValues(preshape, manip.GetGripperIndices())
+                            robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
+                            contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                            print "mindists %f %f" % (mindist, mindist2)
+                            grasper.robot.SetTransform(finalconfig[1])
+                            env.UpdatePublishedBodies()
+                            # raw_input('press any key to continue:(1) ')
+                            grasper.robot.SetTransform(finalconfig2[1])
+                            env.UpdatePublishedBodies()
+                            # raw_input('press any key to continue:(2) ')
+                        else:
+                            mindist2 = 1.0
+                        # print "hoge"
+                        # print mindist, mindist2
+                        if mindist > 1e-9 and mindist2 > 1e-9:
+                            pose_array_msg.poses.append(matrix2pose(matrix))
+                    except (PlanningError), e:
+                        print "warn! planning error occured!"
+                        continue
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
