@@ -14,6 +14,10 @@ from openrave_test.srv import *
 import commands
 from pickle import *
 import sys
+from std_msgs.msg import String
+from jsk_interactive_marker.msg import *
+from jsk_interactive_marker.srv import *
+
 
 def callback(box):
     print "callback start!"
@@ -32,10 +36,6 @@ def callback(box):
         box.pose = geometry_msgs.msg.Pose(geometry_msgs.msg.Point(*xyz), geometry_msgs.msg.Quaternion(*quat))
         box.header.frame_id = "kinfu_origin"
         #target.SetTransform(numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot)))
-        now = rospy.Time(0)
-        listener.waitForTransform('camera_link', 'kinfu_origin', now, rospy.Duration(2.0))
-        (trans,rot) = listener.lookupTransform('kinfu_origin', 'camera_link', now) # ground->camera_link
-        mat44_ground_kinfu = numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot))
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
         print "tf error: %s" % e
         return
@@ -230,13 +230,26 @@ def grasp_assess_service(req):
         res.assessment_point = -100
     return res
 
+def marker_callback(msg):
+    box = BoundingBox()
+    get_box_pose_srv = rospy.ServiceProxy("/transformable_server_sample/get_pose", GetTransformableMarkerPose)
+    resp = get_box_pose_srv(target_name=msg.data)
+    box.pose = resp.pose_stamped.pose
+    box.header = resp.pose_stamped.header
+    get_box_dim_srv = rospy.ServiceProxy("/transformable_server_sample/get_dimensions", GetMarkerDimensions)
+    resp2 = get_box_dim_srv(target_name=msg.data)
+    box.dimensions.x = resp2.dimensions.x
+    box.dimensions.y = resp2.dimensions.y
+    box.dimensions.z = resp2.dimensions.z
+    callback(box)
+
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
     global pose_array_pub
     pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
+    rospy.Subscriber("/select_box", String, marker_callback)
     rospy.Service('/grasp_assess', GraspAssess, grasp_assess_service)
-
 
 def matrix2pose(matrix):
     quat = quatFromRotationMatrix(matrix[0:3, 0:3])

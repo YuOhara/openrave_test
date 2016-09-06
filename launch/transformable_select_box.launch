@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="jsk_interactive_marker" type="transformable_server_sample" name="transformable_server_sample" output="screen">
+    <param name="display_interactive_manipulator" value="true"/>
+    <param name="yaml_filename" value="$(find openrave_test)/config/menu.yaml" />
+  </node>
+  <!-- <node pkg="openrave_test" type="transformable_select_box.sh" name="setup_trans_select"/> -->
+</launch>
