@@ -41,12 +41,17 @@
 
 (defmethod rrt-jt-multigoal
   (:clear-func (s)
-    t
+    (ros::ros-info "try clear func!")
+    (return-from :clear-func t)
     ;; (service-call-for-grasp)
     )
   (:ik-func (robot arm coords)
-    (send robot arm :inverse-kinematics coords :stop 5 :debub-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
+    (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
     )
+  (:collision-free ;; need to implement this
+   ()
+   (not (check-collision :obj *tmp-world*))
+   )
   )
 
 (defun service-call-for-grasp 
@@ -85,7 +90,8 @@
   (setq *hand-new-endcoords*
         (make-cascoords
          :coords
-         (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :rotate (deg2rad 50) :x)
+         ;; (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :rotate (deg2rad 50) :x)
+         (send (send *robot* :hand :rarm) :copy-worldcoords)
          :parent (send (send *robot* :rarm :end-coords) :parent)))
   (send *robot* :fix-leg-to-coords (make-coords))
   (send *robot* :hand :rarm :hook-pose)
@@ -117,17 +123,15 @@
     (let ((trs
            (send (send trans-ground->kinfu :copy-worldcoords)
                  :transform (ros::tf-pose->coords  obj))))
-      (send trs :translate (float-vector 0 0 -70)) ;; offset for avoid collision
+      (send trs :translate (float-vector 0 -50 50)) ;; offset for avoid collision
       ;; (send trs :rotate (deg2rad -90) :y)
-      (send trs :rotate (deg2rad -180) :y)
-      (dotimes (i 18)
-        (let
-            ((trs-0 (send (send trs :copy-worldcoords) :rotate (deg2rad (* i 30)) :z)))
-          (push trs-0 lst)
-          (push
-           (instance workspace-goal-region :init trs-0 :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
-           *wgrs*)
-          )
+      ;; (send trs :rotate (deg2rad -180) :y)
+      (let
+          ((trs-0 (send trs :copy-worldcoords)))
+        (push trs-0 lst)
+        (push
+         (instance workspace-goal-region :init trs-0 :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
+         *wgrs*)
         )
         ))
   (send *robot* :reset-manip-pose)
