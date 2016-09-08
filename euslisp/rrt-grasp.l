@@ -157,6 +157,21 @@
     (read-line))
   )
 
+(defun try-move
+  ()
+  ;; service call for save image
+  ;; save bmf file
+  ;; call moseg
+  )
+(defun call-image-save 
+  ()
+  )
+(defun save-bmf-file
+  ()
+  )
+(defun call-moseg
+  ()
+  )
 (ros::roseus "sample-grasp-node")
 (init-robot)
 (ros::subscribe "/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
