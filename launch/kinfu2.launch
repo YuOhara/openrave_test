@@ -24,4 +24,8 @@
   </include>
   <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder" output="screen" respawn="true">
   </node>
+  <node pkg="image_view" type="image_saver" name="save_image_for_moseg" >
+    <remap from="image" to="/camera_remote/rgb/image_rect_color"/>
+    <param name="~save_all_image" value="false" />
+  </node>
 </launch>

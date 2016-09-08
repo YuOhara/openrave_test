@@ -158,13 +158,21 @@
   )
 
 (defun try-move
-  ()
-  ;; service call for save image
+  (angle-vector)
+  (send *ri* :angle-vector angle-vector 20000)
+  (dotimes (i 20)
+    (unix::sleep 1)
+    (call-image-save)
+    )
   ;; save bmf file
+
   ;; call moseg
   )
 (defun call-image-save 
   ()
+  (let ((req (instance std_srvs::Empty :init)) res)
+    (setq res (ros::service-call "/save_image_for_moseg/save" req))
+    )
   )
 (defun save-bmf-file
   ()
