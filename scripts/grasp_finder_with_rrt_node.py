@@ -133,9 +133,9 @@ def try_grasp():
                             grasper.robot.SetTransform(finalconfig[1])
                         if mindist > 1e-9:
                             grasper.robot.SetTransform(finalconfig[1])
-                            # Tgrasp = manip.GetEndEffectorTransform()
-                            Tgrasp = robot.GetTransform()
-                            direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
+                            Tgrasp = manip.GetEndEffectorTransform()
+                            # Tgrasp = robot.GetTransform()
+                            direction2, roll2, position2 = graspParamsFromPose(Tgrasp, manipulatordirection)
                             matrix = Tgrasp ##finalconfig[1]
                             # print finalconfig[1]
                             ## start 2nd
@@ -145,21 +145,24 @@ def try_grasp():
                             robot.SetTransform(numpy.eye(4))
                             robot.SetDOFValues(preshape, manip.GetGripperIndices())
                             robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
-                            contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                            contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                             print "mindists %f %f" % (mindist, mindist2)
                             if mindist > 1e-9 and mindist2 > 1e-9:
                                 grasper.robot.SetTransform(finalconfig[1])
                                 env.UpdatePublishedBodies()
+                                print finalconfig[1]
                                 raw_input('press any key to continue:(1) ')
                                 grasper.robot.SetTransform(finalconfig2[1])
                                 env.UpdatePublishedBodies()
+                                print finalconfig2[1]
                                 raw_input('press any key to continue:(2) ')
                         else:
                             mindist2 = 1.0
                         # print "hoge"
                         # print mindist, mindist2
                         if mindist > 1e-9 and mindist2 > 1e-9:
-                            pose_array_msg.poses.append(matrix2pose(matrix))
+                            grasper.robot.SetTransform(finalconfig[1])
+                            pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
                     except (PlanningError), e:
                         print "warn! planning error occured!"
                         continue
@@ -175,63 +178,6 @@ def try_grasp():
 
 def shut_down_hook():
     print "shutting down node"
-
-def grasp_assess_service(req):
-    # do not need to change frame
-    rospy.loginfo("assess grasp start")
-    pos_msg = req.pose_stamped.pose.position
-    rot_msg = req.pose_stamped.pose.orientation
-    pos_array = numpy.array([pos_msg.x, pos_msg.y, pos_msg.z])
-    rot_array = numpy.array([rot_msg.w, rot_msg.x, rot_msg.y, rot_msg.z])
-    pose_mat = matrixFromQuat(rot_array)
-    pose_mat[0:3, 3] = pos_array
-    direction, roll, position = graspParamsFromPose(pose_mat, manipulatordirection)
-    # grasper.robot.SetTransform(pose_mat)
-    print "pose mat"
-    print pose_mat
-    env.UpdatePublishedBodies()
-    standoffs = [0, 0.025]
-    robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
-    target1.Enable(True)
-    target2.Enable(False)
-    contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-    print "mindist1!"
-    print mindist
-    res = GraspAssessResponse()
-    if finalconfig:
-        grasper.robot.SetTransform(finalconfig[1])
-        robot.SetTransform(finalconfig[1])
-        # Tgrasp = manip.GetEndEffectorTransform()
-        Tgrasp = robot.GetTransform()
-        res.assessment_point = mindist
-        pose_msg = Pose()
-        matrix = Tgrasp ##finalconfig[1]
-        res.assessed_pose_stamped.pose = matrix2pose(matrix)
-        res.assessed_pose_stamped.header = req.pose_stamped.header
-        # print finalconfig[1]
-        ## start 2nd
-        target1.Enable(False)
-        target2.Enable(True)
-        robot.SetActiveDOFs(manip.GetGripperIndices(), 0)
-        direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
-        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoffs[0], manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-        if finalconfig:
-            grasper.robot.SetTransform(finalconfig[1])
-            Tgrasp = manip.GetEndEffectorTransform()
-            ## debug
-            print "min dists!"
-            print res.assessment_point, mindist
-            res.assessment_point = numpy.min([res.assessment_point, mindist])
-            pose_msg = Pose()
-            matrix = Tgrasp ##finalconfig[1]
-            res.assessed_pose_stamped.pose = matrix2pose(matrix)
-            res.assessed_pose_stamped.header = req.pose_stamped.header
-        else:
-            res.assessment_point = -100
-        ## end second
-    else:
-        res.assessment_point = -100
-    return res
 
 def marker_callback(msg):
     box = BoundingBox()
@@ -252,7 +198,6 @@ def grasp_finder():
     pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
-    rospy.Service('/grasp_assess', GraspAssess, grasp_assess_service)
 
 def matrix2pose(matrix):
     quat = quatFromRotationMatrix(matrix[0:3, 0:3])
