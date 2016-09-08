@@ -96,7 +96,7 @@ def try_grasp():
     approachrays = return_box_approach_rays(gmodel, box)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     global grasper
-    grasper = interfaces.Grasper(robot, 0.3)
+    grasper = interfaces.Grasper(robot, friction=0.3)
     len_approach = len(approachrays)
     print "len %d %d" % (len_approach,  approachrays.shape[0])
     try_num = 0
@@ -149,15 +149,19 @@ def try_grasp():
                             # if mindist > 1e-9 and mindist2 > 1e-9:
                             if True:
                                 grasper.robot.SetTransform(finalconfig[1])
-                                env.UpdatePublishedBodies()
+                                grasper.robot.SetDOFValues(finalconfig[0])
                                 # print "finalconfig1"
                                 # print finalconfig[1]
                                 # print "Tgrasp"
                                 # print Tgrasp
                                 # print "directions"
                                 # print direction2, roll2, position2
+                                drawContacts(contacts)
+                                env.UpdatePublishedBodies()
                                 raw_input('press any key to continue:(1) ')
                                 grasper.robot.SetTransform(finalconfig2[1])
+                                grasper.robot.SetDOFValues(finalconfig2[0])
+                                drawContacts(contacts2)
                                 env.UpdatePublishedBodies()
                                 raw_input('press any key to continue:(2) ')
                         else:
@@ -179,6 +183,18 @@ def try_grasp():
     print len(pose_array_msg.poses)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
+
+def drawContacts(contacts,conelength=0.03,transparency=0.5):
+    angs = numpy.linspace(0,2*numpy.pi,10)
+    global grasper, env
+    conepoints = numpy.r_[[[0,0,0]],conelength*numpy.c_[grasper.friction*numpy.cos(angs),grasper.friction*numpy.sin(angs),numpy.ones(len(angs))]]
+    triinds = numpy.array(numpy.c_[numpy.zeros(len(angs)),range(2,1+len(angs))+[1],range(1,1+len(angs))].flatten(),int)
+    allpoints = numpy.zeros((0,3))
+    for c in contacts:
+        R = rotationMatrixFromQuat(quatRotateDirection(numpy.array((0,0,1)),c[3:6]))
+        points = numpy.dot(conepoints,numpy.transpose(R)) + numpy.tile(c[0:3],(conepoints.shape[0],1))
+        allpoints = numpy.r_[allpoints,points[triinds,:]]
+    return env.drawtrimesh(points=allpoints,indices=None,colors=numpy.array((1,0.4,0.4,transparency)))
 
 def shut_down_hook():
     print "shutting down node"
