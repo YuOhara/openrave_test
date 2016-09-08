@@ -133,7 +133,8 @@ def try_grasp():
                             grasper.robot.SetTransform(finalconfig[1])
                         if mindist > 1e-9:
                             grasper.robot.SetTransform(finalconfig[1])
-                            Tgrasp = manip.GetEndEffectorTransform()
+                            # Tgrasp = manip.GetEndEffectorTransform()
+                            Tgrasp = robot.GetTransform()
                             direction, roll, position = graspParamsFromPose(Tgrasp, manipulatordirection)
                             matrix = Tgrasp ##finalconfig[1]
                             # print finalconfig[1]
@@ -146,12 +147,13 @@ def try_grasp():
                             robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
                             contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                             print "mindists %f %f" % (mindist, mindist2)
-                            grasper.robot.SetTransform(finalconfig[1])
-                            env.UpdatePublishedBodies()
-                            # raw_input('press any key to continue:(1) ')
-                            grasper.robot.SetTransform(finalconfig2[1])
-                            env.UpdatePublishedBodies()
-                            # raw_input('press any key to continue:(2) ')
+                            if mindist > 1e-9 and mindist2 > 1e-9:
+                                grasper.robot.SetTransform(finalconfig[1])
+                                env.UpdatePublishedBodies()
+                                raw_input('press any key to continue:(1) ')
+                                grasper.robot.SetTransform(finalconfig2[1])
+                                env.UpdatePublishedBodies()
+                                raw_input('press any key to continue:(2) ')
                         else:
                             mindist2 = 1.0
                         # print "hoge"
@@ -199,7 +201,8 @@ def grasp_assess_service(req):
     if finalconfig:
         grasper.robot.SetTransform(finalconfig[1])
         robot.SetTransform(finalconfig[1])
-        Tgrasp = manip.GetEndEffectorTransform()
+        # Tgrasp = manip.GetEndEffectorTransform()
+        Tgrasp = robot.GetTransform()
         res.assessment_point = mindist
         pose_msg = Pose()
         matrix = Tgrasp ##finalconfig[1]
