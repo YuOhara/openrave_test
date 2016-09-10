@@ -104,8 +104,8 @@ def try_grasp():
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
-    success_grasp_list = None
-    half_success_grasp_list = None
+    success_grasp_list = []
+    half_success_grasp_list = []
     for approachray in approachrays:
         standoffs = [0, 0.025]
         for standoff in standoffs:
@@ -180,7 +180,7 @@ def try_grasp():
     for grasp_node in success_grasp_list:
         contact_num = 0
         ave_x = ave_y = ave_z = 0
-        temp_pose = geometry_msgs.Pose()
+        temp_pose = Pose()
         for contact in grasp_node[0]:
             ave_x = ave_x + contact[0]
             ave_y = ave_y + contact[1]
