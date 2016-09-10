@@ -189,8 +189,8 @@ def try_grasp():
         temp_pose.position.x = ave_x/contact_num
         temp_pose.position.y = ave_y/contact_num
         temp_pose.position.z = ave_z/contact_num
-        com_array_msg.poses.append(temp_pose.position)
-    com_array_msg.header = box.header
+        com_array_msg.poses.append(temp_pose)
+    com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
     show_result(success_grasp_list)
     print "Finished"
@@ -199,20 +199,21 @@ def try_grasp():
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 
-def show_result(grasp_list):
+def show_result(grasp_list_array):
     global grasper, env
-    grasper.robot.SetTransform(grasp_list[2][1])
-    grasper.robot.SetDOFValues(grasp_list[2][0])
-    drawContacts(grasp_list[0])
-    env.UpdatePublishedBodies()
-    raw_input('press any key to continue:(1) ')
-    grasper.robot.SetTransform(grasp_list[3][1])
-    grasper.robot.SetDOFValues(grasp_list[3][0])
-    drawContacts(grasp_list[1])
-    env.UpdatePublishedBodies()
-    raw_input('press any key to continue:(2) ')
-    grasper.robot.SetTransform(finalconfig[1])
-    pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+    for grasp_list in grasp_list_array:
+        grasper.robot.SetTransform(grasp_list[2][1])
+        grasper.robot.SetDOFValues(grasp_list[2][0])
+        drawContacts(grasp_list[0])
+        env.UpdatePublishedBodies()
+        raw_input('press any key to continue:(1) ')
+        grasper.robot.SetTransform(grasp_list[3][1])
+        grasper.robot.SetDOFValues(grasp_list[3][0])
+        drawContacts(grasp_list[1])
+        env.UpdatePublishedBodies()
+        raw_input('press any key to continue:(2) ')
+        grasper.robot.SetTransform(finalconfig[1])
+        pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
 
 
 def drawContacts(contacts,conelength=0.03,transparency=0.5):
