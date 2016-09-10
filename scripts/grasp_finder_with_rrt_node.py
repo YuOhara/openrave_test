@@ -95,6 +95,7 @@ def try_grasp():
     gmodel = databases.grasping.GraspingModel(robot,target1)
     approachrays = return_box_approach_rays(gmodel, box)
     pose_array_msg = geometry_msgs.msg.PoseArray()
+    com_array_msg = geometry_msgs.msg.PoseArray()
     global grasper
     grasper = interfaces.Grasper(robot, friction=0.3)
     len_approach = len(approachrays)
@@ -103,6 +104,8 @@ def try_grasp():
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
+    success_grasp_list = None
+    half_success_grasp_list = None
     for approachray in approachrays:
         standoffs = [0, 0.025]
         for standoff in standoffs:
@@ -150,27 +153,23 @@ def try_grasp():
                             # if True:
                                 grasper.robot.SetTransform(finalconfig[1])
                                 grasper.robot.SetDOFValues(finalconfig[0])
-                                # print "finalconfig1"
-                                # print finalconfig[1]
-                                # print "Tgrasp"
-                                # print Tgrasp
-                                # print "directions"
-                                # print direction2, roll2, position2
                                 drawContacts(contacts)
                                 env.UpdatePublishedBodies()
-                                raw_input('press any key to continue:(1) ')
+                                # raw_input('press any key to continue:(1) ')
                                 grasper.robot.SetTransform(finalconfig2[1])
                                 grasper.robot.SetDOFValues(finalconfig2[0])
                                 drawContacts(contacts2)
                                 env.UpdatePublishedBodies()
-                                raw_input('press any key to continue:(2) ')
+                                # raw_input('press any key to continue:(2) ')
+                                grasper.robot.SetTransform(finalconfig[1])
+                                pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+                                success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
+                            else:
+                                half_success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
                         else:
                             mindist2 = 1.0
                         # print "hoge"
                         # print mindist, mindist2
-                        if mindist > 1e-9 and mindist2 > 1e-9:
-                            grasper.robot.SetTransform(finalconfig[1])
-                            pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
                     except (PlanningError), e:
                         print "warn! planning error occured!"
                         continue
@@ -178,11 +177,43 @@ def try_grasp():
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
     pose_array_pub.publish(pose_array_msg)
+    for grasp_node in success_grasp_list:
+        contact_num = 0
+        ave_x = ave_y = ave_z = 0
+        temp_pose = geometry_msgs.Pose()
+        for contact in grasp_node[0]:
+            ave_x = ave_x + contact[0]
+            ave_y = ave_y + contact[1]
+            ave_z = ave_z + contact[2]
+            contact_num = contact_num + 1
+        temp_pose.position.x = ave_x/contact_num
+        temp_pose.position.y = ave_y/contact_num
+        temp_pose.position.z = ave_z/contact_num
+        com_array_msg.poses.append(temp_pose.position)
+    com_array_msg.header = box.header
+    com_array_pub.publish(com_array_msg)
+    show_result(success_grasp_list)
     print "Finished"
     print "Num!"
     print len(pose_array_msg.poses)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
+
+def show_result(grasp_list):
+    global grasper, env
+    grasper.robot.SetTransform(grasp_list[2][1])
+    grasper.robot.SetDOFValues(grasp_list[2][0])
+    drawContacts(grasp_list[0])
+    env.UpdatePublishedBodies()
+    raw_input('press any key to continue:(1) ')
+    grasper.robot.SetTransform(grasp_list[3][1])
+    grasper.robot.SetDOFValues(grasp_list[3][0])
+    drawContacts(grasp_list[1])
+    env.UpdatePublishedBodies()
+    raw_input('press any key to continue:(2) ')
+    grasper.robot.SetTransform(finalconfig[1])
+    pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+
 
 def drawContacts(contacts,conelength=0.03,transparency=0.5):
     angs = numpy.linspace(0,2*numpy.pi,10)
@@ -214,8 +245,9 @@ def marker_callback(msg):
 
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
-    global pose_array_pub
+    global pose_array_pub, com_array_pub
     pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
+    com_array_pub = rospy.Publisher('/grasp_caluculation_com_result', geometry_msgs.msg.PoseArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
 
