@@ -146,8 +146,8 @@ def try_grasp():
                             robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
                             contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                             print "mindists %f %f" % (mindist, mindist2)
-                            # if mindist > 1e-9 and mindist2 > 1e-9:
-                            if True:
+                            if mindist > 1e-9 and mindist2 > 1e-9:
+                            # if True:
                                 grasper.robot.SetTransform(finalconfig[1])
                                 grasper.robot.SetDOFValues(finalconfig[0])
                                 # print "finalconfig1"

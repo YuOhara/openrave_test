@@ -159,27 +159,59 @@
 
 (defun try-move
   (angle-vector)
-  (send *ri* :angle-vector angle-vector 20000)
+  (send *ri* :angle-vector angle-vector 10000)
   (dotimes (i 20)
-    (unix::sleep 1)
+    (unix::usleep 500000)
     (call-image-save)
     )
   ;; save bmf file
-
+  (save-bmf-file)
+  (unix::system "cp ~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/")
+  (unix::system "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/left*")
   ;; call moseg
+  (call-moseg)
   )
 (defun call-image-save 
   ()
-  (let ((req (instance std_srvs::Empty :init)) res)
+  (let ((req (instance std_srvs::EmptyRequest :init)) res)
     (setq res (ros::service-call "/save_image_for_moseg/save" req))
     )
   )
 (defun save-bmf-file
   ()
+  ;; dummy
+  ;; file size is given
   )
+(defun open-hand
+  ()
+  (send *robot* :hand :rarm :angle-vector (float-vector 90.0 90.0 0.0 0.0 -40.0 -40.0))
+  (hand-model2real)
+  )
+(defun close-hand
+  ()
+  (send *robot* :hand :rarm :r_thumbcm_p :joint-angle -30)
+  (hand-model2real)
+  (send *robot* :hand :rarm :r_middlepip_r :joint-angle 110)
+  (hand-model2real)
+  (send *robot* :hand :rarm :r_indexmp_r :joint-angle 30)
+  (hand-model2real)
+  (send *robot* :hand :rarm :r_indexpip_r :joint-angle 60)
+  (hand-model2real)
+  )
+
+
+(defun hand-model2real (&key (time 500) (wait? t))
+  (send *ri* :hand-angle-vector (apply #'concatenate float-vector (send *robot* :hand :arms :angle-vector)) time)
+  (when wait? (send *ri* :hand-wait-interpolation)))
+
+  
 (defun call-moseg
   ()
+  (cd "/home/leus/ros/indigo/src/openrave_test/moseg") ;; need to change dir
+  (unix::system "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/FlowFiles")
+  (unix::system "$(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
   )
+
 (ros::roseus "sample-grasp-node")
 (init-robot)
 (ros::subscribe "/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
