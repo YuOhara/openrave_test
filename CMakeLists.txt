@@ -29,3 +29,5 @@ include_directories(
 
 add_executable(ply_clipper src/ply_clipper.cpp)
 target_link_libraries(ply_clipper ${catkin_LIBRARIES})
+add_executable(second_grasp_finder src/second_grasp_finder.cpp)
+target_link_libraries(second_grasp_finder ${catkin_LIBRARIES})
