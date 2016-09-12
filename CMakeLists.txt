@@ -5,9 +5,12 @@ find_package(catkin REQUIRED
   rospy
   geometry_msgs
   message_generation
+  message_filters
   pcl_conversions
   pcl_ros
   sensor_msgs
+  image_geometry
+  tf_conversions
   )
 
 add_service_files(FILES

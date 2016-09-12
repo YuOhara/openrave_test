@@ -212,9 +212,6 @@ def show_result(grasp_list_array):
         drawContacts(grasp_list[1])
         env.UpdatePublishedBodies()
         raw_input('press any key to continue:(2) ')
-        grasper.robot.SetTransform(finalconfig[1])
-        pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
-
 
 def drawContacts(contacts,conelength=0.03,transparency=0.5):
     angs = numpy.linspace(0,2*numpy.pi,10)
