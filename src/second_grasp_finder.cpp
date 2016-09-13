@@ -34,6 +34,7 @@ public:
 };
 
 sensor_msgs::CameraInfo::ConstPtr cam_info_;
+image_geometry::PinholeCameraModel model_;
 tf::TransformListener tf_listener_;
 std::vector<Eigen::Affine3d> grasp_array_odom;
 std::vector<Eigen::Vector3d> com_array_odom;
@@ -64,6 +65,38 @@ void readTracks(std::vector<CSimpleTrack> &mTracks) {
       aFile >> aTrack.mPoints[j].frame;
     }
   }
+}
+
+Eigen::Affine3d getTransform(std::string from, std::string to) {
+  tf::StampedTransform tf_transform;
+  ros::Time now = ros::Time::now();
+  tf_listener_.waitForTransform(from, to, now, ros::Duration(2.0));
+  tf_listener_.lookupTransform(from, to, now, tf_transform);
+  Eigen::Affine3d transform;
+  tf::transformTFToEigen(tf_transform, transform);
+  return transform;
+}
+
+
+int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
+{
+  double min = 10000;
+  int label = -1;
+  for (size_t j = 0; j < mTracks.size(); j++) {
+    double dist = pow((x - mTracks[j].mPoints.front().x), 2.0) + pow((y - mTracks[j].mPoints.front().y), 2.0);
+    if (min > dist){
+      label = mTracks[j].mLabel;
+      min = dist;
+    }
+  }
+  return label;
+}
+
+int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks)
+{
+    cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
+    cv::Point2d uv = model_.project3dToPixel(p);
+    return getLabel(uv.x, uv.y, mTracks);
 }
 
 void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geometry_msgs::PoseArrayConstPtr& com)
@@ -103,36 +136,24 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   std::vector<CSimpleTrack> mTracks;
   readTracks(mTracks);
   // move to camera frame
-  tf::StampedTransform tf_transform;
-  ros::Time now = ros::Time::now();
-  tf_listener_.waitForTransform(cam_info_->header.frame_id, "odom", now, ros::Duration(2.0));
-  tf_listener_.lookupTransform(cam_info_->header.frame_id, "odom", now, tf_transform);
-  Eigen::Affine3d transform;
-  tf::transformTFToEigen(tf_transform, transform);
+
+  Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "odom");
   // project all grasps to movement
-  image_geometry::PinholeCameraModel model;
-  bool model_success_p = model.fromCameraInfo(cam_info_);
+  bool model_success_p = model_.fromCameraInfo(cam_info_);
   if (!model_success_p) {
     ROS_INFO("failed to create camera model");
     return false;
   }
-  int hand_label = 1; // need to be done
+  int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks);
+  ROS_INFO("hand label! %d", hand_label);
   int back_label = 0; // may be 0
   geometry_msgs::PoseArray second_grasp_pose_array;
+
+  // get transform
   for (size_t i = 0; i < com_array_odom.size(); i++) {
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
-    cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
-    cv::Point2d uv = model.project3dToPixel(p);
-    double min = 10000;
-    int label = -1;
-    for (size_t j = 0; j < mTracks.size(); j++) {
-      double dist = pow((uv.x - mTracks[j].mPoints.front().x), 2.0) + pow((uv.y - mTracks[j].mPoints.front().y), 2.0);
-      if (min > dist){
-        label = mTracks[j].mLabel;
-        min = dist;
-      }
-    }
+    int label = getLabel(grasp_cam, mTracks);
     if (label != hand_label && label != back_label) {
       // push back grasp pose
       geometry_msgs::Pose grasp_pose;
@@ -146,6 +167,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   res.second_grasp_pose_array = second_grasp_pose_array;
   return true;
 }
+
+
 
 int main(int argc, char **argv)
 {
