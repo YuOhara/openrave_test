@@ -103,10 +103,13 @@
   (callback2 *msg*)
   )
 
+(defun go-pos-coords (coords)
+  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector (- (elt (send :coords :pos)) 500) 0 0)))
+  )
 (defun callback2 (msg)
   ;; transform to robot frame
   ;; (send *robot* :fix-leg-to-coords (make-coords))
-  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
+  ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
   (setq trans-ground->kinfu
         (send *tfl* :lookup-transform
               "/ground"
@@ -134,6 +137,7 @@
          *wgrs*)
         )
         ))
+  (go-pos-coords (elt lst 0))
   (send *robot* :reset-manip-pose)
   ;; (send *robot* :fix-leg-to-coords (make-coords))
   (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))
