@@ -28,4 +28,7 @@
     <remap from="image" to="/camera_remote/rgb/image_rect_color"/>
     <param name="~save_all_image" value="false" />
   </node>
+  <node pkg="openrave_test" type="second_grasp_finder" name="second_grasp_finder" >
+    <remap from="camera_info" to="$(arg INFO)" />
+  </node>
 </launch>
