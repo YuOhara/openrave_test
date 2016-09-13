@@ -152,8 +152,8 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "second_grasp_finder");
   ros::NodeHandle n;
   second_grasp_array_pub_ = n.advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000);
-  message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "grasp", 1);
-  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "com", 1);
+  message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "/grasp_caluculation_result", 1);
+  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "/grasp_caluculation_com_result", 1);
   typedef message_filters::sync_policies::ExactTime<geometry_msgs::PoseArray, geometry_msgs::PoseArray> MySyncPolicy;
   // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
   message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), grasp_sub, com_sub);
