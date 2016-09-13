@@ -11,11 +11,16 @@ find_package(catkin REQUIRED
   sensor_msgs
   image_geometry
   tf_conversions
+  eigen_conversions
   )
 
 add_service_files(FILES
   GraspAssess.srv
   )
+add_service_files(FILES
+  SecondGrasp.srv
+  )
+
 
 generate_messages (
   DEPENDENCIES

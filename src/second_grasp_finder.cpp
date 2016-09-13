@@ -3,6 +3,7 @@
 #include "std_msgs/String.h"
 #include "geometry_msgs/PoseArray.h"
 #include "sensor_msgs/CameraInfo.h"
+#include "openrave_test/SecondGrasp.h"
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
@@ -34,9 +35,9 @@ public:
 
 sensor_msgs::CameraInfo::ConstPtr cam_info_;
 tf::TransformListener tf_listener_;
-std::vector<Eigen::Vector3d> grasp_array_ground;
-std::vector<Eigen::Vector3d> com_array_ground;
-
+std::vector<Eigen::Affine3d> grasp_array_odom;
+std::vector<Eigen::Vector3d> com_array_odom;
+ros::Publisher second_grasp_array_pub_;
 
 void readTracks(std::vector<CSimpleTrack> &mTracks) {
   // open a file
@@ -67,7 +68,24 @@ void readTracks(std::vector<CSimpleTrack> &mTracks) {
 
 void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geometry_msgs::PoseArrayConstPtr& com)
 {
-  // transform to ground frame
+  // transform to odom frame
+  tf::StampedTransform tf_transform;
+  ros::Time now = ros::Time::now();
+  tf_listener_.waitForTransform(grasp->header.frame_id, "odom", now, ros::Duration(2.0));
+  tf_listener_.lookupTransform(grasp->header.frame_id, "odom", now, tf_transform);
+  Eigen::Affine3d transform;
+  tf::transformTFToEigen(tf_transform, transform);
+  for (int i=0; i<grasp->poses.size(); i++) {
+    Eigen::Affine3d grasp_affine;
+    Eigen::Affine3d com_affine_pose;
+    tf::poseMsgToEigen(grasp->poses[i], grasp_affine);
+    tf::poseMsgToEigen(com->poses[i], com_affine_pose);
+    Eigen::Vector3d com_affine = com_affine_pose.translation();
+    grasp_affine = transform * grasp_affine;
+    com_affine = transform * com_affine;
+    grasp_array_odom.push_back(grasp_affine);
+    com_array_odom.push_back(com_affine);
+  }
 }
 
 void cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& info)
@@ -75,19 +93,20 @@ void cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& info)
   cam_info_ = info;
 }
 
-void loadMovementFile()
+bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
+                      openrave_test::SecondGrasp::Response &res)
 {
   if (!cam_info_) {
     ROS_INFO("no camera info is available");
-    return;
+    return false;
   }
   std::vector<CSimpleTrack> mTracks;
   readTracks(mTracks);
   // move to camera frame
   tf::StampedTransform tf_transform;
   ros::Time now = ros::Time::now();
-  tf_listener_.waitForTransform(cam_info_->header.frame_id, "ground", now, ros::Duration(2.0));
-  tf_listener_.lookupTransform(cam_info_->header.frame_id, "ground", now, tf_transform);
+  tf_listener_.waitForTransform(cam_info_->header.frame_id, "odom", now, ros::Duration(2.0));
+  tf_listener_.lookupTransform(cam_info_->header.frame_id, "odom", now, tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);
   // project all grasps to movement
@@ -95,56 +114,51 @@ void loadMovementFile()
   bool model_success_p = model.fromCameraInfo(cam_info_);
   if (!model_success_p) {
     ROS_INFO("failed to create camera model");
-    return;
+    return false;
   }
-  int hand_label = 1;
-  std::vector<cv::Point2d> local_points;
-  for (size_t i = 0; i < com_array_ground.size(); i++) {
+  int hand_label = 1; // need to be done
+  int back_label = 0; // may be 0
+  geometry_msgs::PoseArray second_grasp_pose_array;
+  for (size_t i = 0; i < com_array_odom.size(); i++) {
     Eigen::Vector3d grasp_cam;
-    grasp_cam = transform * com_array_ground[i];
+    grasp_cam = transform * com_array_odom[i];
     cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
     cv::Point2d uv = model.project3dToPixel(p);
-    local_points.push_back(uv);
     double min = 10000;
     int label = -1;
     for (size_t j = 0; j < mTracks.size(); j++) {
-      double dist = pow((uv.x - mTracks[j].mPoints.back().x), 2.0) + pow((uv.y - mTracks[j].mPoints.back().y), 2.0);
+      double dist = pow((uv.x - mTracks[j].mPoints.front().x), 2.0) + pow((uv.y - mTracks[j].mPoints.front().y), 2.0);
       if (min > dist){
         label = mTracks[j].mLabel;
         min = dist;
       }
     }
-    if (label != hand_label) {
+    if (label != hand_label && label != back_label) {
       // push back grasp pose
-      
+      geometry_msgs::Pose grasp_pose;
+      tf::poseEigenToMsg(grasp_array_odom[i], grasp_pose);
+      second_grasp_pose_array.poses.push_back(grasp_pose);
     }
   }
-
+  second_grasp_pose_array.header.frame_id = "odom";
+  second_grasp_pose_array.header.stamp = ros::Time::now();
+  second_grasp_array_pub_.publish(second_grasp_pose_array);
+  res.second_grasp_pose_array = second_grasp_pose_array;
+  return true;
 }
 
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "second_grasp_finder");
   ros::NodeHandle n;
-
-  message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "image", 1);
-  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "camera_info", 1);
+  second_grasp_array_pub_ = n.advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000);
+  message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "grasp", 1);
+  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "com", 1);
   typedef message_filters::sync_policies::ExactTime<geometry_msgs::PoseArray, geometry_msgs::PoseArray> MySyncPolicy;
   // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
   message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), grasp_sub, com_sub);
   sync.registerCallback(boost::bind(&graspPoseCallback, _1, _2));
-
+  ros::Subscriber sub = n.subscribe("camera_info", 1000, cameraInfoCallback);
+  ros::ServiceServer service = n.advertiseService("second_grasp", loadMovementFile);  
   return 0;
 }
-
-// subscribe grasp pose
-
-// subscribe center pose
-
-// load movement file
-
-// find point before
-
-// find near point
-
-// publish grasp pose in moved points
