@@ -42,8 +42,13 @@
 (defmethod rrt-jt-multigoal
   (:clear-func (s)
     (ros::ros-info "try clear func!")
-    (return-from :clear-func t)
-    ;; (service-call-for-grasp)
+    (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
+    (if
+        (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+        (return-from :clear-func t)
+      (return-from :clear-func nil)
+      )
+    ;; (service-call-for-grasp s)
     )
   (:ik-func (robot arm coords)
     (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
@@ -55,7 +60,7 @@
   )
 
 (defun service-call-for-grasp 
-  ()
+  (s)
   (ros::ros-info "try clear func!")
   (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
   (send *irtviewer* :draw-objects)
@@ -104,8 +109,9 @@
   )
 
 (defun go-pos-coords (coords)
-  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector (- (elt (send :coords :pos)) 500) 0 0)))
+  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector (- (elt (send coords :pos) 0) 550) 0 0)))
   )
+
 (defun callback2 (msg)
   ;; transform to robot frame
   ;; (send *robot* :fix-leg-to-coords (make-coords))
@@ -140,7 +146,7 @@
   (go-pos-coords (elt lst 0))
   (send *robot* :reset-manip-pose)
   ;; (send *robot* :fix-leg-to-coords (make-coords))
-  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))
+  ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))
   (setq *solver*
         (instance rrt-jt-multigoal :init
                   *robot*
@@ -161,6 +167,24 @@
     (read-line))
   )
 
+(defun do-motion
+  ()
+  (open-hand)
+  (send *ri* :angle-vector (send *robot* :reset-manip-pose) 10000)
+  (send *ri* :wait-interpolation)
+  (send *ri* :go-pos (* (elt (send (send *robot* :foot-midcoords) :pos) 0) 0.001) 0 0)
+  (dolist (state (send-all (send *ret* :solution-nodes) :state))
+    (send *robot* :rarm :angle-vector state)
+    (send *irtviewer* :draw-objects)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 2000)
+    (send *ri* :wait-interpolation)
+    )
+  ;; offset
+  (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+  (send *ri* :angle-vector (send *robot* :angle-vector) 5000)
+  (send *ri* :wait-interpolation)
+  (close-hand)
+  )
 (defun try-move
   (angle-vector)
   (send *ri* :angle-vector angle-vector 10000)
