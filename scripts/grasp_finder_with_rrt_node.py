@@ -83,7 +83,10 @@ def try_grasp():
 
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
-    robot = env.GetRobots()[0]
+    left_hand = rospy.get_param("~left", False)
+    hand1 = env.GetRobots()[0]
+    hand2 = env.GetRobots()[1]
+    robot = hand2 if left_hand else hand1
     target1 = env.GetKinBody('mug1')
     target2 = env.GetKinBody('mug2')
     # robot.GetLink("RARM_LINK6").Enable(False)
@@ -244,8 +247,8 @@ def marker_callback(msg):
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
     global pose_array_pub, com_array_pub
-    pose_array_pub = rospy.Publisher('/grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
-    com_array_pub = rospy.Publisher('/grasp_caluculation_com_result', geometry_msgs.msg.PoseArray, latch=True)
+    pose_array_pub = rospy.Publisher('~grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
+    com_array_pub = rospy.Publisher('~grasp_caluculation_com_result', geometry_msgs.msg.PoseArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
 

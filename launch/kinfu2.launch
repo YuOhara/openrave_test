@@ -22,7 +22,10 @@
   <include file="$(find jsk_pcl_ros)/launch/organized_multi_plane_segmentation.launch">
     <arg name="INPUT" value="$(arg POINTS)" />
   </include>
-  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder" output="screen" respawn="true">
+  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="true">
+  </node>
+  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true">
+    <param name="~left_hand" value="true" />
   </node>
   <node pkg="image_view" type="image_saver" name="save_image_for_moseg" respawn="true">
     <remap from="image" to="/camera_remote/rgb/image_rect_color"/>

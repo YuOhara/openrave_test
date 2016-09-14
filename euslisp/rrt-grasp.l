@@ -242,4 +242,4 @@
 
 (ros::roseus "sample-grasp-node")
 (init-robot)
-(ros::subscribe "/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
+(ros::subscribe "/grasp_finder_right/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
