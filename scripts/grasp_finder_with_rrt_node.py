@@ -67,11 +67,10 @@ def callback(box):
     f.close()
     try_grasp()
 
-def initialize_env():
+def initialize_env(left_hand):
     env=Environment()
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
     # env.SetViewer('qtcoin')
-    left_hand = rospy.get_param("~left", False)
     hand1 = env.GetRobots()[0]
     hand2 = env.GetRobots()[1]
     robot = hand2 if left_hand else hand1
@@ -83,7 +82,7 @@ def initialize_env():
     manipulatordirection = manip.GetLocalToolDirection()
     gmodel = databases.grasping.GraspingModel(robot,target1)
     grasper = interfaces.Grasper(robot, friction=0.3)
-    return env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
+    return env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
 
 def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, formatstring):
     thread_num = 40
@@ -108,20 +107,20 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
 def load_and_save_trial_single(index, formatstring):
     check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
 
-def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach):
+def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
     approachrays_queue = Queue()
     success_grasp_list_queue = Queue()
     half_success_grasp_list_queue = Queue()
     for approachray in approachrays:
         approachrays_queue.put(approachray)
-    trial_queue(approachrays_queue, success_grasp_list_queue, half_success_grasp_list_queue, len_approach)
+    trial_queue(approachrays_queue, success_grasp_list_queue, half_success_grasp_list_queue, len_approach, left_hand)
     while not success_grasp_list_queue.empty():
         success_grasp_list.append(success_grasp_list_queue.get())
     while not half_success_grasp_list_queue.empty():
         half_success_grasp_list.append(half_success_grasp_list_queue.get())
 
-def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_approach):
-    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env()
+def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand)
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     print "hoge"
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
@@ -208,7 +207,8 @@ def try_grasp():
     print check
     check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
     print check
-    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env()
+    left_hand = rospy.get_param("~left", False)
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand)
     env.SetViewer('qtcoin')
     target2.Enable(False)
     target2.SetVisible(True)

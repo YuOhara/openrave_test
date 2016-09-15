@@ -21,7 +21,8 @@ if __name__ == '__main__':
     f.close()
     success_grasp_list = []
     half_success_grasp_list = []
-    grasp_finder_with_rrt_node.trial(approachrays, success_grasp_list, half_success_grasp_list, len(approachrays))
+    left_hand = True if "left" in formatstring else False
+    grasp_finder_with_rrt_node.trial(approachrays, success_grasp_list, half_success_grasp_list, len(approachrays), left_hand)
     f2 = open('/home/leus/.ros/grasps/result_%s.txt' % (formatstring) , 'w')
     pickle.dump(success_grasp_list, f2)
     f2.close()
