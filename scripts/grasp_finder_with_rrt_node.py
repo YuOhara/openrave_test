@@ -140,7 +140,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                 matrix = poseFromGraspParams(-approachray[3:6], 0, approachray[0:3], manipulatordirection)
                 mindist = mindist2 = 1.0
             else:
-                rolls = [0, numpy.pi/2, numpy.pi, numpy.pi*3/2]
+                rolls = [0, numpy.pi/4 ,numpy.pi/2,numpy.pi/4*3, numpy.pi, numpy.pi/4*5, numpy.pi*3/2, numpy.pi/4*7]
                 for roll in rolls:
                     mindist = mindist2 = -0.1
                     robot.SetActiveManipulator(manip)
