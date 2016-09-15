@@ -17,7 +17,7 @@ import sys
 from std_msgs.msg import String
 from jsk_interactive_marker.msg import *
 from jsk_interactive_marker.srv import *
-
+from multiprocessing import Process, Queue
 
 def callback(box):
     print "callback start!"
@@ -85,35 +85,52 @@ def initialize_env():
     grasper = interfaces.Grasper(robot, friction=0.3)
     return env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
 
-def try_grasp():
-    # pickle
-    f = open('/home/leus/.ros/temp_box.txt')
-    box = pickle.load(f)
-    f.close()
+def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, formatstring):
+    thread_num = 40
+    ps = []
+    for i in range(thread_num):
+        approachrays_save = approachrays[len_approach/thread_num*i: len_approach/thread_num*(i+1)]
+        f2 = open('/home/leus/.ros/grasps/grasp_%s%d.txt' % (formatstring, i) , 'w')
+        pickle.dump(approachrays_save, f2)
+        f2.close()
+        p = Process(target=load_and_save_trial_single, args=(i, formatstring))
+        p.start()
+        ps.append(p)
+        print i
+    for i in range(thread_num):
+        ps[i].join()
+        f = open('/home/leus/.ros/grasps/result_%s%d.txt' % (formatstring, i))
+        success_grasp_list_load = pickle.load(f)
+        success_grasp_list.extend(success_grasp_list_load)
+        f.close()
 
-    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
-    print check
-    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
-    print check
 
-    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env()
+def load_and_save_trial_single(index, formatstring):
+    check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
 
-    target2.Enable(False)
-    target2.SetVisible(True)
-    approachrays = return_box_approach_rays(gmodel, box)
-    pose_array_msg = geometry_msgs.msg.PoseArray()
-    com_array_msg = geometry_msgs.msg.PoseArray()
+def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach):
+    approachrays_queue = Queue()
+    success_grasp_list_queue = Queue()
+    half_success_grasp_list_queue = Queue()
+    for approachray in approachrays:
+        approachrays_queue.put(approachray)
+    trial_queue(approachrays_queue, success_grasp_list_queue, half_success_grasp_list_queue, len_approach)
+    while not success_grasp_list_queue.empty():
+        success_grasp_list.append(success_grasp_list_queue.get())
+    while not half_success_grasp_list_queue.empty():
+        half_success_grasp_list.append(half_success_grasp_list_queue.get())
 
-    len_approach = len(approachrays)
-    print "len %d %d" % (len_approach,  approachrays.shape[0])
-    try_num = 0
-    success_grasp_list = []
-    half_success_grasp_list = []
-
+def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_approach):
+    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env()
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
+    print "hoge"
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
-    for approachray in approachrays:
+    # preshape = robot.GetDOFValues(manip.GetGripperIndices())
+    print "fuga"
+    # for approachray in approachrays:
+    while not approachrays.empty():
+        approachray = approachrays.get()
         standoffs = [0, 0.025]
         for standoff in standoffs:
             pose_msg = Pose()
@@ -130,9 +147,9 @@ def try_grasp():
                     robot.SetTransform(numpy.eye(4))
                     robot.SetDOFValues(preshape, manip.GetGripperIndices())
                     robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
+                    try_num = 0 # temp
                     sys.stdout.write("\rtry %d/%d " % (try_num, len_approach*4*2))
                     sys.stdout.flush()
-                    try_num = try_num + 1
                     # grasper.robot.SetTransform(poseFromGraspParams(-approachray[3:6], roll, approachray[0:3], manipulatordirection))
                     try:
                         target1.Enable(True)
@@ -169,10 +186,9 @@ def try_grasp():
                                 env.UpdatePublishedBodies()
                                 # raw_input('press any key to continue:(2) ')
                                 grasper.robot.SetTransform(finalconfig[1])
-                                pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
-                                success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
+                                success_grasp_list.put([contacts, contacts2, finalconfig, finalconfig2])
                             else:
-                                half_success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
+                                half_success_grasp_list.put([contacts, contacts2, finalconfig, finalconfig2])
                         else:
                             mindist2 = 1.0
                         # print "hoge"
@@ -182,6 +198,37 @@ def try_grasp():
                         continue
 
 
+def try_grasp():
+    # pickle
+    f = open('/home/leus/.ros/temp_box.txt')
+    box = pickle.load(f)
+    f.close()
+
+    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+    print check
+    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
+    print check
+    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env()
+    env.SetViewer('qtcoin')
+    target2.Enable(False)
+    target2.SetVisible(True)
+    approachrays = return_box_approach_rays(gmodel, box)
+    pose_array_msg = geometry_msgs.msg.PoseArray()
+    com_array_msg = geometry_msgs.msg.PoseArray()
+
+    len_approach = len(approachrays)
+    print "len %d %d" % (len_approach,  approachrays.shape[0])
+    try_num = 0
+    success_grasp_list_queue = Queue()
+    half_success_grasp_list_queue = Queue()
+    success_grasp_list = []
+    half_success_grasp_list = []
+    approachrays_queue = Queue()
+    format_string = "left" if left_hand else "right"
+    start = time.time()
+    load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
+    elapsed_time = time.time() - start
+    print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
@@ -199,6 +246,8 @@ def try_grasp():
         temp_pose.position.y = ave_y/contact_num
         temp_pose.position.z = ave_z/contact_num
         com_array_msg.poses.append(temp_pose)
+        grasper.robot.SetTransform(grasp_node[3][1])
+        pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
     show_result(success_grasp_list, grasper, env)
