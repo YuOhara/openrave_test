@@ -71,7 +71,9 @@ Eigen::Affine3d getTransform(std::string from, std::string to) {
   tf::StampedTransform tf_transform;
   ros::Time now = ros::Time::now();
   tf_listener_->waitForTransform(from, to, now, ros::Duration(2.0));
-  tf_listener_->lookupTransform(from, to, now, tf_transform);
+  tf_listener_->lookupTransform(from, to, 
+                                ros::Time(0)//now
+                                , tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);
   return transform;
@@ -102,10 +104,13 @@ int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks)
 void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geometry_msgs::PoseArrayConstPtr& com)
 {
   // transform to odom frame
+  ROS_INFO("recieve grasp coords");
   tf::StampedTransform tf_transform;
   ros::Time now = ros::Time::now();
-  tf_listener_->waitForTransform(grasp->header.frame_id, "odom", now, ros::Duration(2.0));
-  tf_listener_->lookupTransform(grasp->header.frame_id, "odom", now, tf_transform);
+  tf_listener_->waitForTransform("odom", grasp->header.frame_id, now, ros::Duration(2.0));
+  tf_listener_->lookupTransform("odom", grasp->header.frame_id, 
+                                ros::Time(0)// now
+                                , tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);
   for (int i=0; i<grasp->poses.size(); i++) {
@@ -154,7 +159,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
     int label = getLabel(grasp_cam, mTracks);
-    if (label != hand_label && label != back_label) {
+    ROS_INFO("label: %d, %d", i, label);
+    if (label != hand_label && label != back_label && label != -1) {
       // push back grasp pose
       geometry_msgs::Pose grasp_pose;
       tf::poseEigenToMsg(grasp_array_odom[i], grasp_pose);

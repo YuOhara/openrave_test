@@ -10,7 +10,9 @@
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
    ()
-   (not (check-collision :obj *tmp-world*))
+   (not (check-collision :obj *tmp-world* 
+                         ;; :link-list (send *robot* :rarm :links)
+                         :hand? t))
    )
   )
 
@@ -53,10 +55,6 @@
   (:ik-func (robot arm coords)
     (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
     )
-  (:collision-free ;; need to implement this
-   ()
-   (not (check-collision :obj *tmp-world*))
-   )
   )
 
 (defun service-call-for-grasp 
@@ -109,7 +107,8 @@
   )
 
 (defun go-pos-coords (coords)
-  (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector (- (elt (send coords :pos) 0) 550) 0 0)))
+  (setq coords2 (send (send coords :copy-worldcoords) :translate (float-vector 0 40 -160)))
+  (send *robot* :fix-leg-to-coords (send (make-coords :pos (float-vector (- (elt (send coords2 :pos) 0) 450) 0 0)) :rotate (deg2rad 0) :z))
   )
 
 (defun callback2 (msg)
@@ -143,8 +142,8 @@
          *wgrs*)
         )
         ))
+  (reset-manip-pose-with-bend)
   (go-pos-coords (elt lst 0))
-  (send *robot* :reset-manip-pose)
   ;; (send *robot* :fix-leg-to-coords (make-coords))
   ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))
   (setq *solver*
@@ -167,12 +166,18 @@
     (read-line))
   )
 
+(defun reset-manip-pose-with-bend
+  ()
+  (send *robot* :reset-manip-pose)
+  (send *robot* :legs :move-end-pos (float-vector 0 0 50))
+  )
 (defun do-motion
   ()
   (open-hand)
-  (send *ri* :angle-vector (send *robot* :reset-manip-pose) 10000)
-  (send *ri* :wait-interpolation)
   (send *ri* :go-pos (* (elt (send (send *robot* :foot-midcoords) :pos) 0) 0.001) 0 0)
+  (reset-manip-pose-with-bend)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+  (send *ri* :wait-interpolation)
   (dolist (state (send-all (send *ret* :solution-nodes) :state))
     (send *robot* :rarm :angle-vector state)
     (send *irtviewer* :draw-objects)
