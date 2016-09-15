@@ -209,7 +209,7 @@ def try_grasp():
     print check
     left_hand = rospy.get_param("~left", False)
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand)
-    env.SetViewer('qtcoin')
+    # env.SetViewer('qtcoin')
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
