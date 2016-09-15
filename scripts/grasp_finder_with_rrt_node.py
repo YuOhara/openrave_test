@@ -22,7 +22,6 @@ from jsk_interactive_marker.srv import *
 def callback(box):
     print "callback start!"
     listener = tf.TransformListener()
-    global mat44
     try:
         now = rospy.Time(0)
         listener.waitForTransform(box.header.frame_id, 'kinfu_origin', now, rospy.Duration(2.0))
@@ -68,21 +67,10 @@ def callback(box):
     f.close()
     try_grasp()
 
-def try_grasp():
-    global env, robot, target1, target2, taskmanip, gmodel, manip, manipulatordirection
+def initialize_env():
     env=Environment()
-    # pickle
-    f = open('/home/leus/.ros/temp_box.txt')
-    box = pickle.load(f)
-    f.close()
-
-    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
-    print check
-    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
-    print check
-
     env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
-    env.SetViewer('qtcoin')
+    # env.SetViewer('qtcoin')
     left_hand = rospy.get_param("~left", False)
     hand1 = env.GetRobots()[0]
     hand2 = env.GetRobots()[1]
@@ -93,22 +81,38 @@ def try_grasp():
     taskmanip = interfaces.TaskManipulation(robot)
     manip = robot.GetActiveManipulator()
     manipulatordirection = manip.GetLocalToolDirection()
+    gmodel = databases.grasping.GraspingModel(robot,target1)
+    grasper = interfaces.Grasper(robot, friction=0.3)
+    return env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
+
+def try_grasp():
+    # pickle
+    f = open('/home/leus/.ros/temp_box.txt')
+    box = pickle.load(f)
+    f.close()
+
+    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+    print check
+    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
+    print check
+
+    env, left_hand, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env()
+
     target2.Enable(False)
     target2.SetVisible(True)
-    gmodel = databases.grasping.GraspingModel(robot,target1)
     approachrays = return_box_approach_rays(gmodel, box)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
-    global grasper
-    grasper = interfaces.Grasper(robot, friction=0.3)
+
     len_approach = len(approachrays)
     print "len %d %d" % (len_approach,  approachrays.shape[0])
     try_num = 0
+    success_grasp_list = []
+    half_success_grasp_list = []
+
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
-    success_grasp_list = []
-    half_success_grasp_list = []
     for approachray in approachrays:
         standoffs = [0, 0.025]
         for standoff in standoffs:
@@ -156,12 +160,12 @@ def try_grasp():
                             # if True:
                                 grasper.robot.SetTransform(finalconfig[1])
                                 grasper.robot.SetDOFValues(finalconfig[0])
-                                drawContacts(contacts)
+                                drawContacts(contacts, grasper, env)
                                 env.UpdatePublishedBodies()
                                 # raw_input('press any key to continue:(1) ')
                                 grasper.robot.SetTransform(finalconfig2[1])
                                 grasper.robot.SetDOFValues(finalconfig2[0])
-                                drawContacts(contacts2)
+                                drawContacts(contacts2, grasper, env)
                                 env.UpdatePublishedBodies()
                                 # raw_input('press any key to continue:(2) ')
                                 grasper.robot.SetTransform(finalconfig[1])
@@ -176,6 +180,8 @@ def try_grasp():
                     except (PlanningError), e:
                         print "warn! planning error occured!"
                         continue
+
+
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
@@ -195,38 +201,38 @@ def try_grasp():
         com_array_msg.poses.append(temp_pose)
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
-    show_result(success_grasp_list)
+    show_result(success_grasp_list, grasper, env)
     print "Finished"
     print "Num!"
     print len(pose_array_msg.poses)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 
-def show_result(grasp_list_array):
-    global grasper, env
-    for grasp_list in grasp_list_array:
-        grasper.robot.SetTransform(grasp_list[2][1])
-        grasper.robot.SetDOFValues(grasp_list[2][0])
-        drawContacts(grasp_list[0])
-        env.UpdatePublishedBodies()
-        raw_input('press any key to continue:(1) ')
-        grasper.robot.SetTransform(grasp_list[3][1])
-        grasper.robot.SetDOFValues(grasp_list[3][0])
-        drawContacts(grasp_list[1])
-        env.UpdatePublishedBodies()
-        raw_input('press any key to continue:(2) ')
+def show_result(grasp_list_array, grasper, env):
+    if env.GetViewer() is not None:
+        for grasp_list in grasp_list_array:
+            grasper.robot.SetTransform(grasp_list[2][1])
+            grasper.robot.SetDOFValues(grasp_list[2][0])
+            drawContacts(grasp_list[0], grasper, env)
+            env.UpdatePublishedBodies()
+            raw_input('press any key to continue:(1) ')
+            grasper.robot.SetTransform(grasp_list[3][1])
+            grasper.robot.SetDOFValues(grasp_list[3][0])
+            drawContacts(grasp_list[1], grasper, env)
+            env.UpdatePublishedBodies()
+            raw_input('press any key to continue:(2) ')
 
-def drawContacts(contacts,conelength=0.03,transparency=0.5):
-    angs = numpy.linspace(0,2*numpy.pi,10)
-    global grasper, env
-    conepoints = numpy.r_[[[0,0,0]],conelength*numpy.c_[grasper.friction*numpy.cos(angs),grasper.friction*numpy.sin(angs),numpy.ones(len(angs))]]
-    triinds = numpy.array(numpy.c_[numpy.zeros(len(angs)),range(2,1+len(angs))+[1],range(1,1+len(angs))].flatten(),int)
-    allpoints = numpy.zeros((0,3))
-    for c in contacts:
-        R = rotationMatrixFromQuat(quatRotateDirection(numpy.array((0,0,1)),c[3:6]))
-        points = numpy.dot(conepoints,numpy.transpose(R)) + numpy.tile(c[0:3],(conepoints.shape[0],1))
-        allpoints = numpy.r_[allpoints,points[triinds,:]]
-    return env.drawtrimesh(points=allpoints,indices=None,colors=numpy.array((1,0.4,0.4,transparency)))
+def drawContacts(contacts,grasper, env, conelength=0.03,transparency=0.5):
+    if env.GetViewer() is not None:
+        angs = numpy.linspace(0,2*numpy.pi,10)
+        conepoints = numpy.r_[[[0,0,0]],conelength*numpy.c_[grasper.friction*numpy.cos(angs),grasper.friction*numpy.sin(angs),numpy.ones(len(angs))]]
+        triinds = numpy.array(numpy.c_[numpy.zeros(len(angs)),range(2,1+len(angs))+[1],range(1,1+len(angs))].flatten(),int)
+        allpoints = numpy.zeros((0,3))
+        for c in contacts:
+            R = rotationMatrixFromQuat(quatRotateDirection(numpy.array((0,0,1)),c[3:6]))
+            points = numpy.dot(conepoints,numpy.transpose(R)) + numpy.tile(c[0:3],(conepoints.shape[0],1))
+            allpoints = numpy.r_[allpoints,points[triinds,:]]
+        return env.drawtrimesh(points=allpoints,indices=None,colors=numpy.array((1,0.4,0.4,transparency)))
 
 def shut_down_hook():
     print "shutting down node"
