@@ -207,7 +207,7 @@ def try_grasp():
     print check
     check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
     print check
-    left_hand = rospy.get_param("~left", False)
+    left_hand = rospy.get_param("~left_handg", False)
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand)
     # env.SetViewer('qtcoin')
     target2.Enable(False)
