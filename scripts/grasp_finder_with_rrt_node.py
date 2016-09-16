@@ -226,14 +226,18 @@ def try_grasp():
     target2.SetVisible(True)
 
     target0 = env.GetKinBody('mug0')
-    target1.Enable(False)
-    target1.SetVisible(True)
-    target0.Enable(True)
-    target0.SetVisible(True)
-    gmodel0 = databases.grasping.GraspingModel(robot,target0)
-    approachrays = return_box_approach_rays(gmodel0, box)
-    target0.Enable(False)
-    target0.SetVisible(False)
+
+    if False:
+        target1.Enable(False)
+        target1.SetVisible(True)
+        target0.Enable(True)
+        target0.SetVisible(True)
+        gmodel0 = databases.grasping.GraspingModel(robot,target0)
+        approachrays = return_box_approach_rays(gmodel0, box)
+        target0.Enable(False)
+        target0.SetVisible(False)
+    else:
+        approachrays = return_box_approach_rays(gmodel, box)
 
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
