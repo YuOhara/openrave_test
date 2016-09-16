@@ -1,0 +1,9 @@
+<KinBody name="mug">
+  <RotationAxis>1 0 0 0</RotationAxis>
+  <Body name = "mugbase" type="dynamic">
+    <Geom type="trimesh">
+      <Data>/home/leus/.ros/mesh0.dae</Data>
+      <Render>/home/leus/.ros/mesh0.dae</Render>
+    </Geom>
+  </Body>
+</KinBody>
