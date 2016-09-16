@@ -65,7 +65,7 @@ def callback(box):
         f = open('/home/leus/.ros/temp_box.txt', 'w')
         pickle.dump(box, f)
         f.close()
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=/home/leus/.ros/mesh_estimated.ply _output_file_name:=/home/leus/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
         print check
         check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
         print check
@@ -228,6 +228,8 @@ def try_grasp():
     target0 = env.GetKinBody('mug0')
     target1.Enable(False)
     target1.SetVisible(True)
+    target0.Enable(True)
+    target0.SetVisible(True)
     gmodel0 = databases.grasping.GraspingModel(robot,target0)
     approachrays = return_box_approach_rays(gmodel0, box)
     target0.Enable(False)
