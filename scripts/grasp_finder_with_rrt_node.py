@@ -18,6 +18,7 @@ from std_msgs.msg import String
 from jsk_interactive_marker.msg import *
 from jsk_interactive_marker.srv import *
 from multiprocessing import Process, Queue
+import os.path
 
 def callback(box):
     print "callback start!"
@@ -74,7 +75,6 @@ def callback(box):
         print check
         check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
         print check
-
     try_grasp()
 
 def initialize_env(left_hand):
@@ -209,11 +209,15 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
 
 def try_grasp():
     # pickle
+    left_hand = rospy.get_param("~left_hand", False)
+    if left_hand:
+        commands.getoutput("rm /home/leus/.ros/temp_box.txt")
+        while not os.path.exists('/home/leus/.ros/temp_box.txt'):
+            rospy.loginfo("wait for right")
+            time.sleep(3)
     f = open('/home/leus/.ros/temp_box.txt')
     box = pickle.load(f)
     f.close()
-
-    left_hand = rospy.get_param("~left_hand", False)
     if left_hand:
         rospy.loginfo("left hand")
     else:
