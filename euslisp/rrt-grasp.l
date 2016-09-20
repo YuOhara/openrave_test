@@ -11,8 +11,10 @@
   (:collision-free ;; need to implement this
    ()
    (not (check-collision :obj *tmp-world* 
-                         ;; :link-list (send *robot* :rarm :links)
-                         :hand? t))
+                         :link-list (send *robot* :rarm :links)
+                         ;; :hand? t
+                         )
+        )
    )
   )
 
@@ -53,7 +55,7 @@
     ;; (service-call-for-grasp s)
     )
   (:ik-func (robot arm coords)
-    (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target *hand-new-endcoords* :rotation-axis t)
+    (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target (send *robot* :rarm :end-coords) :rotation-axis t)
     )
   )
 
@@ -89,7 +91,7 @@
   (setq *robot* *hrp2jsknts*)
   (unless (boundp '*tfl*)
     (setq *tfl* (instance ros::transform-listener :init)))
-  (setq *hand-coords*  (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
+  (setq *hand-coords*  (send (send (send *robot* :hand :rarm) :copy-worldcoords) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
   (setq *hand-new-endcoords*
         (make-cascoords
          :coords
@@ -132,6 +134,7 @@
            (send (send trans-ground->kinfu :copy-worldcoords)
                  :transform (ros::tf-pose->coords  obj))))
       (send trs :translate (float-vector 0 -50 50)) ;; offset for avoid collision
+      (send trs :transform (send *hand-coords* :copy-worldcoords))
       ;; (send trs :rotate (deg2rad -90) :y)
       ;; (send trs :rotate (deg2rad -180) :y)
       (let
@@ -152,7 +155,8 @@
                   :rarm
                   *wgrs*
                   :stop 2000
-                  :end-coords *hand-new-endcoords*
+                  ;; :end-coords *hand-new-endcoords*
+                  :end-coords (send *robot* :rarm :end-coords)
                   ))
   ;; (setf (send *robot* :rarm :end-coords) *hand-new-endcoords*)
   (setq *ret* (send *solver* :solve))

@@ -52,6 +52,8 @@ def callback(box):
         ## change ply -> dae
         check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh.ply -o /home/leus/.ros/mesh.dae")
         print check
+        check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+        print check
         check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
         print check
         check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae /home/leus/.ros/tmp_model.l")
@@ -261,7 +263,6 @@ def try_grasp():
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
-    pose_array_pub.publish(pose_array_msg)
     for grasp_node in success_grasp_list:
         contact_num = 0
         ave_x = ave_y = ave_z = 0
@@ -279,6 +280,7 @@ def try_grasp():
         pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
+    pose_array_pub.publish(pose_array_msg)
     show_result(success_grasp_list, grasper, env)
     print "Finished"
     print "Num!"
