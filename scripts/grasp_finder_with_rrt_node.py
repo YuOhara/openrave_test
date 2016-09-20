@@ -237,6 +237,8 @@ def try_grasp():
         target0.Enable(False)
         target0.SetVisible(False)
     else:
+        target0.Enable(False)
+        target0.SetVisible(False)
         approachrays = return_box_approach_rays(gmodel, box)
 
     pose_array_msg = geometry_msgs.msg.PoseArray()
