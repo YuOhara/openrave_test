@@ -4,9 +4,9 @@
     <effector>LARM_LINK6</effector>
     <joints>L_THUMBCM_P L_MIDDLEPIP_R L_INDEXCM_R L_INDEXPIP_R</joints>
     <closingdirection>-1 1 1 1</closingdirection>
-    <Translation>0 -0.04 -0.16</Translation>
-    <direction>0 -0.766 -0.643</direction>
-    <!-- <Translation>0 0.08 -0.16</Translation> -->
-    <!-- <direction>0 0 -1.0</direction> -->
+    <!-- <Translation>0 -0.04 -0.16</Translation> -->
+    <!-- <direction>0 -0.766 -0.643</direction> -->
+    <Translation>0 -0.08 -0.16</Translation>
+    <direction>0 0 -1.0</direction>
   </Manipulator>
 </Robot>

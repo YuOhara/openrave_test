@@ -5,6 +5,7 @@
 (ros::roseus-add-msgs "geometry_msgs")
 (ros::roseus-add-srvs "std_srvs")
 (ros::roseus-add-srvs "openrave_test")
+(load "package://openrave_test/euslisp/utility.l")
 
 
 (defmethod rrt-jt-multigoal
@@ -86,6 +87,23 @@
     )
   )
 
+(defun all-ik ()
+  (setq *ik-result* nil)
+  (let ((foot-coords (send *robot* :foot-midcoords)))
+    (dolist (pose lst)
+      ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
+      (send *robot* :reset-manip-pose)
+      (send *robot* :fix-leg-to-coords foot-coords)
+      (setq ik-result (fullbody-ik pose))
+      (if ik-result (push ik-result *ik-result*))
+      ;; (if ik-result
+      ;;     (return-from :solve-ik nil)
+      ;;   )
+      )
+    )
+  )
+
+
 (defun init-robot ()
   (hrp2jsknts-init)
   (setq *robot* *hrp2jsknts*)
@@ -107,6 +125,15 @@
   (setq *msg* msg)
   (callback2 *msg*)
   )
+
+(defun go-pos-exec ()
+  (let ((trans (send *robot* :foot-midcoords)))
+    (let ((x (* 0.001 (elt (send trans :worldpos) 0)))
+          (y (* 0.001 (elt (send trans :worldpos) 1)))
+          (theta (rad2deg (elt (car (send trans :rpy-angle)) 0))))
+      (send *ri* :go-pos x y theta))
+    ))
+
 
 (defun go-pos-coords (coords)
   (setq coords2 (send (send coords :copy-worldcoords) :translate (float-vector 0 40 -160)))
@@ -169,16 +196,19 @@
     (send *irtviewer* :draw-objects)
     (read-line))
   )
-
+(defun show-grasp
+  ()
+  (dotimes (i (length lst)) (send (elt lst i) :draw-on :flush t :color (float-vector 1 0 0)))
+  )
 (defun reset-manip-pose-with-bend
   ()
   (send *robot* :reset-manip-pose)
-  (send *robot* :legs :move-end-pos (float-vector 0 0 50))
+  (send *robot* :legs :move-end-pos (float-vector 0 0 0))
   )
 (defun do-motion
   ()
   (open-hand)
-  (send *ri* :go-pos (* (elt (send (send *robot* :foot-midcoords) :pos) 0) 0.001) 0 0)
+  (go-pos-exec)
   (reset-manip-pose-with-bend)
   (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
   (send *ri* :wait-interpolation)
