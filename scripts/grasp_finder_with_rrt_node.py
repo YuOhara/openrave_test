@@ -40,11 +40,7 @@ def callback(box):
         print "tf error: %s" % e
         return
     ## call service for save mesh
-    left_hand = rospy.get_param("~left_hand", False)
-    if left_hand:
-        rospy.loginfo("left hand")
-    else:
-        rospy.loginfo("right hand")
+    left_hand = rospy.get_param("~left_hand", True)
     if not left_hand:
         rospy.loginfo("save mesh start")
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
@@ -75,6 +71,11 @@ def callback(box):
         print check
         check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh0.ply -o /home/leus/.ros/mesh0.dae")
         print check
+    else:
+        commands.getoutput("rm /home/leus/.ros/temp_box.txt")
+        while not os.path.exists('/home/leus/.ros/temp_box.txt'):
+            rospy.loginfo("wait for right")
+            time.sleep(10)
     try_grasp()
 
 def initialize_env(left_hand):
@@ -163,14 +164,16 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                     try:
                         target1.Enable(True)
                         target2.Enable(False)
-                        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=-approachray[3:6], roll=roll, position=approachray[0:3], standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                        direction = -approachray[3:6]
+                        direction = offset_direction(direction, roll, manipulatordirection, numpy.pi/4)
+                        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=approachray[0:3], standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                         # print "mindist! %f" % mindist
                         if mindist > 1e-9:
                             grasper.robot.SetTransform(finalconfig[1])
                             env.UpdatePublishedBodies()
                             Tgrasp = manip.GetEndEffectorTransform()
                             # Tgrasp = robot.GetTransform()
-                            direction2, roll2, position2 = (-approachray[3:6], roll, approachray[0:3])# graspParamsFromPose(Tgrasp, manipulatordirection) # need debug, Tgrasp not changed?
+                            direction2, roll2, position2 = (direction, roll, approachray[0:3])# graspParamsFromPose(Tgrasp, manipulatordirection) # need debug, Tgrasp not changed?
                             matrix = Tgrasp ##finalconfig[1]
                             # print finalconfig[1]
                             ## start 2nd
@@ -209,12 +212,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
 
 def try_grasp():
     # pickle
-    left_hand = rospy.get_param("~left_hand", False)
-    if left_hand:
-        commands.getoutput("rm /home/leus/.ros/temp_box.txt")
-        while not os.path.exists('/home/leus/.ros/temp_box.txt'):
-            rospy.loginfo("wait for right")
-            time.sleep(3)
+    left_hand = rospy.get_param("~left_hand", True)
     f = open('/home/leus/.ros/temp_box.txt')
     box = pickle.load(f)
     f.close()
@@ -243,7 +241,7 @@ def try_grasp():
     #     target0.Enable(False)
     #     target0.SetVisible(False)
     #     approachrays = return_box_approach_rays(gmodel, box)
-
+    show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
 
@@ -345,6 +343,21 @@ def matrix2pose(matrix):
     pose_msg.position = Point(pos[0], pos[1], pos[2])
     pose_msg.orientation = Quaternion(quat[1], quat[2], quat[3], quat[0])
     return pose_msg
+
+def offset_direction(direction, roll, manipulatordirection, new_roll):
+    position = numpy.array([0, 0, 0])
+    pose_mat = poseFromGraspParams(direction, roll, position, manipulatordirection)
+    quat = [numpy.cos(new_roll/2), numpy.sin(new_roll/2), 0, 0]
+    quat_mat = matrixFromQuat(quat)
+    new_roll_mat = numpy.dot(quat_mat, pose_mat)
+    return graspParamsFromPose(new_roll_mat, manipulatordirection)[0]
+
+def show_approachrays(approachrays, env): ## todo
+    gapproachrays = numpy.c_[approachrays[:,0:3],approachrays[:,3:6]]
+    N = approachrays.shape[0]
+    approachgraphs = [env.plot3(points=gapproachrays[:,0:3],pointsize=5,colors=numpy.array((1,0,0))), env.drawlinelist(points=numpy.reshape(numpy.c_[gapproachrays[:,0:3],gapproachrays[:,0:3]+0.015*gapproachrays[:,3:6]],(2*N,3)),linewidth=4,colors=numpy.array((1,0,0,1)))]
+    env.UpdatePublishedBodies()
+
 
 if __name__ == '__main__':
     grasp_finder()

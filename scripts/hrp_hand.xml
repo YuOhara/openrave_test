@@ -6,8 +6,10 @@
     <closingdirection>-1 1 1 1</closingdirection>
     <!-- <Translation>0 0.04 -0.16</Translation> -->
     <!-- <direction>0 0.766 -0.643</direction> -->
-    <Translation>0 0.08 -0.16</Translation>
-    <direction>0 0 -1.0</direction>
+    <Translation>0 0.06 -0.18</Translation>
+    <direction>0 0.766 -0.643</direction>
+    <!-- <Translation>0 0.08 -0.16</Translation> -->
+    <!-- <direction>0 0 -1.0</direction> -->
   </Manipulator>
 <!-- <Robot file="/home/leus/.local/share/Trash/files/usb_back/old/.Trash-999/files/fuerte/jsk-ros-pkg/jsk_model_tools/euscollada/pr2.dae"> -->
 <!-- <Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/SampleRobot.dae"> -->
