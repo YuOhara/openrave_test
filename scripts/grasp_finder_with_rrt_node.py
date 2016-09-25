@@ -177,7 +177,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                         # env.UpdatePublishedBodies()
                         # raw_input("hoge")
                         ## end debug
-                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, numpy.pi / 4.0)
+                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, - numpy.pi / 4.0 if left_hand else numpy.pi / 4.0)
                         ## debug
                         # pose2 = poseFromGraspParams(direction, roll, position, manipulatordirection)
                         # grasper.robot.SetTransform(pose2)
