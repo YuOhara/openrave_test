@@ -123,9 +123,23 @@ def poseFromGraspParams(direction, roll, position, manipulatordirection):
     return posematrix
 
 def graspParamsFromPose(pose, manipulatordirection):
+    ## maybe incorect
+    ## not used in
     direction_2 = numpy.dot(pose[0:3, 0:3], manipulatordirection)
     posematrix_tmp_2 = matrixFromQuat(quatRotateDirection(manipulatordirection, direction_2))
     position_2 = pose[0:3, 3]
     tbasematrix_2 = numpy.dot(numpy.linalg.inv(posematrix_tmp_2), pose)
-    roll_2 = numpy.linalg.norm(axisAngleFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3])))
+    # roll_2 = numpy.linalg.norm(axisAngleFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3])))
+    # roll_2 = axisAngleFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3]))[3]
+    roll_2 = rollFromQuat(quatFromRotationMatrix(tbasematrix_2[0:3, 0:3]), manipulatordirection)
     return direction_2, roll_2, position_2
+
+def rollFromQuat(quat, manipulatordirection):
+    sinang = quat[1]*quat[1] + quat[2]*quat[2] + quat[3]*quat[3]
+    if sinang == 0:
+        return 0
+    sinang = numpy.sqrt(sinang)
+    if (numpy.dot(quat[1:4], manipulatordirection) > 0 and quat[0] > 0) or (numpy.dot(quat[1:4], manipulatordirection) < 0 and quat[0] < 0):
+        return numpy.arcsin(sinang) * 2
+    else:
+        return (numpy.pi - numpy.arcsin(sinang)) * 2
