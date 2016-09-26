@@ -201,9 +201,9 @@
   (dotimes (i (length lst)) (send (elt lst i) :draw-on :flush t :color (float-vector 1 0 0)))
   )
 (defun reset-manip-pose-with-bend
-  ()
+  (&key (offset 0))
   (send *robot* :reset-manip-pose)
-  (send *robot* :legs :move-end-pos (float-vector 0 0 0))
+  (send *robot* :legs :move-end-pos (float-vector 0 0 offset))
   )
 (defun do-motion
   ()
@@ -271,7 +271,15 @@
   (send *ri* :hand-angle-vector (apply #'concatenate float-vector (send *robot* :hand :arms :angle-vector)) time)
   (when wait? (send *ri* :hand-wait-interpolation)))
 
+(defun bend-legs ()
+  (reset-manip-pose-with-bend :offset 150)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+  (send *ri* :wait-interpolation)
+  (reset-manip-pose-with-bend :offset 0)
+  (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+  (send *ri* :wait-interpolation)
   
+)
 (defun call-moseg
   ()
   (cd "/home/leus/ros/indigo/src/openrave_test/moseg") ;; need to change dir
