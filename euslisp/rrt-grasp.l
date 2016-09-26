@@ -285,6 +285,7 @@
   (cd "/home/leus/ros/indigo/src/openrave_test/moseg") ;; need to change dir
   (unix::system "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/FlowFiles")
   (unix::system "$(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
+  (unix::system "/dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020")
   )
 
 (ros::roseus "sample-grasp-node")
