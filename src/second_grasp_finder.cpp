@@ -16,6 +16,9 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <math.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 /**
  * This tutorial demonstrates simple receipt of messages over the ROS system.
  */
@@ -39,6 +42,7 @@ tf::TransformListener *tf_listener_;
 std::vector<Eigen::Affine3d> grasp_array_odom;
 std::vector<Eigen::Vector3d> com_array_odom;
 ros::Publisher *second_grasp_array_pub_;
+cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
 
 void readTracks(std::vector<CSimpleTrack> &mTracks) {
   // open a file
@@ -91,6 +95,8 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
       min = dist;
     }
   }
+  std::string output_txt = "" + label;
+  cv::putText(debug_img, output_txt.c_str(), cv::Point(x,y), cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0,0,200), 2, CV_AA);
   return label;
 }
 
@@ -108,11 +114,13 @@ void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geom
   tf::StampedTransform tf_transform;
   ros::Time now = ros::Time::now();
   tf_listener_->waitForTransform("odom", grasp->header.frame_id, now, ros::Duration(2.0));
-  tf_listener_->lookupTransform("odom", grasp->header.frame_id, 
+  tf_listener_->lookupTransform("odom", grasp->header.frame_id,
                                 ros::Time(0)// now
                                 , tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);
+  grasp_array_odom.clear();
+  com_array_odom.clear();
   for (int i=0; i<grasp->poses.size(); i++) {
     Eigen::Affine3d grasp_affine;
     Eigen::Affine3d com_affine_pose;
@@ -128,7 +136,9 @@ void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geom
 
 void cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& info)
 {
-  cam_info_ = info;
+  if (!cam_info_) {
+    cam_info_ = info;
+  }
 }
 
 bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
@@ -140,8 +150,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   }
   std::vector<CSimpleTrack> mTracks;
   readTracks(mTracks);
+  debug_img = cv::Mat::zeros(cam_info_->width, cam_info_->height, CV_8UC3);
   // move to camera frame
-
   Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "odom");
   // project all grasps to movement
   bool model_success_p = model_.fromCameraInfo(cam_info_);
@@ -171,6 +181,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   second_grasp_pose_array.header.stamp = ros::Time::now();
   second_grasp_array_pub_->publish(second_grasp_pose_array);
   res.second_grasp_pose_array = second_grasp_pose_array;
+  cv::imshow("debug_moseg", debug_img);
+  cv::imwrite("/home/leus/.ros/test.jpg", debug_img);
   return true;
 }
 
