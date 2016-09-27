@@ -14,6 +14,9 @@ find_package(catkin REQUIRED
   eigen_conversions
   )
 
+add_message_files(FILES
+  RaveGraspArray.msg
+  )
 add_service_files(FILES
   GraspAssess.srv
   )

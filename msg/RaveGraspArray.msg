@@ -1,0 +1,2 @@
+geometry_msgs/PoseArray pose_array
+std_msgs/Float32MultiArray[] grasp_array

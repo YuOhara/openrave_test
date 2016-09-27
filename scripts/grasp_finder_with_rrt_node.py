@@ -11,10 +11,11 @@ from geometry_msgs.msg import *
 import tf
 from tf import transformations
 from openrave_test.srv import *
+from openrave_test.msg import *
 import commands
 from pickle import *
 import sys
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32MultiArray
 from jsk_interactive_marker.msg import *
 from jsk_interactive_marker.srv import *
 from multiprocessing import Process, Queue
@@ -40,7 +41,7 @@ def callback(box):
         print "tf error: %s" % e
         return
     ## call service for save mesh
-    left_hand = rospy.get_param("~left_hand", False)
+    left_hand = rospy.get_param("~left_hand", True)
     if not left_hand:
         rospy.loginfo("save mesh start")
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
@@ -240,7 +241,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
 
 def try_grasp():
     # pickle
-    left_hand = rospy.get_param("~left_hand", False)
+    left_hand = rospy.get_param("~left_hand", True)
     f = open('/home/leus/.ros/temp_box.txt')
     box = pickle.load(f)
     f.close()
@@ -289,6 +290,7 @@ def try_grasp():
     print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
+    float_array_msg_list = []
     # pose_array_msg.header.frame_id = "ground"
     print "Finished"
     print "Num!"
@@ -308,9 +310,14 @@ def try_grasp():
         com_array_msg.poses.append(temp_pose)
         grasper.robot.SetTransform(grasp_node[3][1])
         pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+        float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
     pose_array_pub.publish(pose_array_msg)
+    rave_grasp_array_msg = RaveGraspArray()
+    rave_grasp_array_msg.pose_array = pose_array_msg
+    rave_grasp_array_msg.grasp_array = float_array_msg_list
+    grasp_array_pub.publish(rave_grasp_array_msg)
     show_result(success_grasp_list, grasper, env)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
@@ -359,9 +366,10 @@ def marker_callback(msg):
 
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
-    global pose_array_pub, com_array_pub
+    global pose_array_pub, com_array_pub, grasp_array_pub
     pose_array_pub = rospy.Publisher('~grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
     com_array_pub = rospy.Publisher('~grasp_caluculation_com_result', geometry_msgs.msg.PoseArray, latch=True)
+    grasp_array_pub = rospy.Publisher('~rave_grasp_result', RaveGraspArray, latch=True)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
 

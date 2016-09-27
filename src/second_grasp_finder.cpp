@@ -38,8 +38,7 @@ public:
 
 sensor_msgs::CameraInfo::ConstPtr cam_info_;
 image_geometry::PinholeCameraModel model_;
-tf::TransformListener *tf_listener_;
-std::vector<Eigen::Affine3d> grasp_array_odom;
+tf::TransformListener *tf_listener_;std::vector<Eigen::Affine3d> grasp_array_odom;
 std::vector<Eigen::Vector3d> com_array_odom;
 ros::Publisher *second_grasp_array_pub_;
 cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
@@ -95,8 +94,12 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
       min = dist;
     }
   }
-  std::string output_txt = "" + label;
-  cv::putText(debug_img, output_txt.c_str(), cv::Point(x,y), cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0,0,200), 2, CV_AA);
+  std::stringstream ss;
+  ss << " label: " << label << " val: " << min;
+  std::string output_txt = ss.str();
+  cv::circle(debug_img, cv::Point(x, y), 3, cv::Scalar(200,0,0), -1, CV_AA);
+  cv::putText(debug_img, output_txt.c_str(), cv::Point(x, y), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,200), 2, CV_AA);
+
   return label;
 }
 
@@ -150,7 +153,9 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   }
   std::vector<CSimpleTrack> mTracks;
   readTracks(mTracks);
-  debug_img = cv::Mat::zeros(cam_info_->width, cam_info_->height, CV_8UC3);
+  // debug_img = cv::Mat::zeros(cam_info_->height, cam_info_->width, CV_8UC3);
+  debug_img = cv::imread("/home/leus/.ros/left0000.jpg");
+
   // move to camera frame
   Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "odom");
   // project all grasps to movement
@@ -169,9 +174,10 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
     int label = getLabel(grasp_cam, mTracks);
-    ROS_INFO("label: %d, %d", i, label);
+    ROS_INFO("label%d:, %d", i, label);
     if (label != hand_label && label != back_label && label != -1) {
       // push back grasp pose
+      ROS_INFO("succeeded");
       geometry_msgs::Pose grasp_pose;
       tf::poseEigenToMsg(grasp_array_odom[i], grasp_pose);
       second_grasp_pose_array.poses.push_back(grasp_pose);
