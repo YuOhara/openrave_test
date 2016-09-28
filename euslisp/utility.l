@@ -10,13 +10,13 @@
            (send *robot* :lleg :end-coords :copy-worldcoords)))
     (with-move-target-link-list
      (mt ll *robot* (list :rarm :rleg :lleg))
-     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? t)
+     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil)
      )
     )
   )
 
 (defun fullbody-inverse-kinematics-for-hrp2
-  (tc mt ll &key (draw? t) (translation-axis (list t t t)) (rotation-axis (list t t t)) (stop 40))
+  (tc mt ll &key (draw? nil) (translation-axis (list t t t)) (rotation-axis (list t t t)) (stop 30))
   (send *robot*
         :fullbody-inverse-kinematics tc
         :move-target mt :link-list ll
