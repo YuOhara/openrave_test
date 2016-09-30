@@ -5,6 +5,7 @@
 (ros::roseus-add-msgs "geometry_msgs")
 (ros::roseus-add-srvs "std_srvs")
 (ros::roseus-add-srvs "openrave_test")
+(ros::roseus-add-msgs "openrave_test")
 (load "package://openrave_test/euslisp/utility.l")
 
 
@@ -131,19 +132,27 @@
     (let ((x (* 0.001 (elt (send trans :worldpos) 0)))
           (y (* 0.001 (elt (send trans :worldpos) 1)))
           (theta (rad2deg (elt (car (send trans :rpy-angle)) 0))))
-      (send *ri* :go-pos x y theta))
+      (go-pos x y theta)
+      )
     ))
 
+(defun go-pos (x y theta)
+  (call-empty "/start_record")
+  (send *ri* :go-pos x y theta)
+  (unix::sleep 1)
+  (call-empty "/stop_record")
+  )
 
 (defun go-pos-coords (coords)
   (setq coords2 (send (send coords :copy-worldcoords) :translate (float-vector 0 40 -160)))
   (send *robot* :fix-leg-to-coords (send (make-coords :pos (float-vector (- (elt (send coords2 :pos) 0) 450) 0 0)) :rotate (deg2rad 0) :z))
   )
 
-(defun callback2 (msg)
+(defun callback2 (msg2)
   ;; transform to robot frame
   ;; (send *robot* :fix-leg-to-coords (make-coords))
   ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
+  (setq msg (send msg2 :pose_array))
   (setq trans-ground->kinfu
         (send *tfl* :lookup-transform
               "/ground"
@@ -204,6 +213,7 @@
   (&key (offset 0))
   (send *robot* :reset-manip-pose)
   (send *robot* :legs :move-end-pos (float-vector 0 0 offset))
+  (send *robot* :head :neck-p :joint-angle 30)
   )
 (defun do-motion
   ()
@@ -220,6 +230,7 @@
     )
   ;; offset
   (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+  (send *robot* :look-at-target (send *robot* :rarm :end-coords))
   (send *ri* :angle-vector (send *robot* :angle-vector) 5000)
   (send *ri* :wait-interpolation)
   (close-hand)
@@ -233,16 +244,18 @@
     )
   ;; save bmf file
   (save-bmf-file)
-  (unix::system "cp ~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/")
-  (unix::system "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/left*")
   ;; call moseg
   (call-moseg)
   )
-(defun call-image-save 
-  ()
+(defun call-empty
+  (name)
   (let ((req (instance std_srvs::EmptyRequest :init)) res)
-    (setq res (ros::service-call "/save_image_for_moseg/save" req))
+    (setq res (ros::service-call name req))
     )
+  )
+(defun call-image-save
+  ()
+  (call-empty "/save_image_for_moseg/save")
   )
 (defun save-bmf-file
   ()
@@ -281,12 +294,14 @@
   )
 (defun call-moseg
   ()
+  (unix::system "cp ~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/")
+  (unix::system "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/left*")
   (cd "/home/leus/ros/indigo/src/openrave_test/moseg") ;; need to change dir
   (unix::system "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/FlowFiles")
   (unix::system "$(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
-  (unix::system "./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020")
+  (unix::system "./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation")
   )
 
 (ros::roseus "sample-grasp-node")
 (init-robot)
-(ros::subscribe "/grasp_finder_right/grasp_caluculation_result" geometry_msgs::PoseArray #'callback)
+(ros::subscribe "/grasp_finder_right/rave_grasp_result" openrave_test::RaveGraspArray #'callback)

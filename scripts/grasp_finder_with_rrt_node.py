@@ -21,6 +21,7 @@ from jsk_interactive_marker.srv import *
 from multiprocessing import Process, Queue
 import os.path
 
+debug_mode = False
 def callback(box):
     print "callback start!"
     listener = tf.TransformListener()
@@ -132,10 +133,9 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
 
 def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand)
-    target1.SetVisible(False)
-    target2.SetVisible(False)
     # debug
-    # env.SetViewer('qtcoin')
+    if debug_mode:
+        env.SetViewer('qtcoin')
     taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
@@ -169,32 +169,32 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                         direction = -approachray[3:6]
                         position = approachray[0:3]
                         ## debug
-                        # print "rolls_before"
-                        # print direction, roll, position
-                        # print "rolls_after"
-                        # print graspParamsFromPose(poseFromGraspParams(direction, roll, position, manipulatordirection), manipulatordirection)
-                        # pose1 = poseFromGraspParams(direction, roll, approachray[0:3], manipulatordirection)
-                        # grasper.robot.SetTransform(pose1)
-                        # env.UpdatePublishedBodies()
-                        # raw_input("hoge")
+                        if debug_mode:
+                            print "rolls_before"
+                            print direction, roll, position
+                            print "rolls_after"
+                            print graspParamsFromPose(poseFromGraspParams(direction, roll, position, manipulatordirection), manipulatordirection)
+                            pose1 = poseFromGraspParams(direction, roll, approachray[0:3], manipulatordirection)
+                            grasper.robot.SetTransform(pose1)
+                            env.UpdatePublishedBodies()
+                            raw_input("hoge")
                         ## end debug
-                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, - numpy.pi / 4.0 if left_hand else numpy.pi / 4.0)
+                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, - numpy.pi / 2.0 if left_hand else numpy.pi / 2.0)
                         ## debug
-                        # pose2 = poseFromGraspParams(direction, roll, position, manipulatordirection)
-                        # grasper.robot.SetTransform(pose2)
-                        # env.UpdatePublishedBodies()
-                        # raw_input("fuga")
-                        # grasper.robot.SetTransform(new_roll_mat)
-                        # env.UpdatePublishedBodies()
-                        # raw_input("fugafuga")
+                        if debug_mode:
+                            pose2 = poseFromGraspParams(direction, roll, position, manipulatordirection)
+                            grasper.robot.SetTransform(pose2)
+                            env.UpdatePublishedBodies()
+                            raw_input("fuga")
                         ## end debug
                         contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                         ## debug
-                        # grasper.robot.SetTransform(finalconfig[1])
-                        # grasper.robot.SetDOFValues(finalconfig[0])
-                        # drawContacts(contacts, grasper, env)
-                        # env.UpdatePublishedBodies()
-                        # raw_input("piyo")
+                        if debug_mode:
+                            grasper.robot.SetTransform(finalconfig[1])
+                            grasper.robot.SetDOFValues(finalconfig[0])
+                            drawContacts(contacts, grasper, env)
+                            env.UpdatePublishedBodies()
+                            raw_input("piyo")
                         ## end debug
                         # print "mindist! %f" % mindist
                         if mindist > 1e-9:
@@ -250,7 +250,8 @@ def try_grasp():
     else:
         rospy.loginfo("right hand")
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand)
-    env.SetViewer('qtcoin')
+    if not debug_mode:
+        env.SetViewer('qtcoin')
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
@@ -284,8 +285,10 @@ def try_grasp():
     approachrays_queue = Queue()
     format_string = "left" if left_hand else "right"
     start = time.time()
-    load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
-    # trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand) #debug
+    if debug_mode:
+        trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand) #debug
+    else:
+        load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
     elapsed_time = time.time() - start
     print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
     pose_array_msg.header = box.header

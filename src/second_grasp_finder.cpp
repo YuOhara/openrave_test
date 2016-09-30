@@ -41,6 +41,7 @@ image_geometry::PinholeCameraModel model_;
 tf::TransformListener *tf_listener_;std::vector<Eigen::Affine3d> grasp_array_odom;
 std::vector<Eigen::Vector3d> com_array_odom;
 ros::Publisher *second_grasp_array_pub_;
+ros::Publisher *second_grasp_array_debug_pub_;
 cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
 
 void readTracks(std::vector<CSimpleTrack> &mTracks) {
@@ -74,8 +75,9 @@ Eigen::Affine3d getTransform(std::string from, std::string to) {
   tf::StampedTransform tf_transform;
   ros::Time now = ros::Time::now();
   tf_listener_->waitForTransform(from, to, now, ros::Duration(2.0));
-  tf_listener_->lookupTransform(from, to, 
-                                ros::Time(0)//now
+  tf_listener_->lookupTransform(from, to,
+                                //ros::Time(0)
+                                now
                                 , tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);
@@ -99,7 +101,6 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
   std::string output_txt = ss.str();
   cv::circle(debug_img, cv::Point(x, y), 3, cv::Scalar(200,0,0), -1, CV_AA);
   cv::putText(debug_img, output_txt.c_str(), cv::Point(x, y), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,200), 2, CV_AA);
-
   return label;
 }
 
@@ -107,6 +108,7 @@ int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks)
 {
     cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
     cv::Point2d uv = model_.project3dToPixel(p);
+    ROS_INFO("%f, %f, %f -> %f, %f", p.x, p.y, p.z, uv.x, uv.y);
     return getLabel(uv.x, uv.y, mTracks);
 }
 
@@ -114,14 +116,7 @@ void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geom
 {
   // transform to odom frame
   ROS_INFO("recieve grasp coords");
-  tf::StampedTransform tf_transform;
-  ros::Time now = ros::Time::now();
-  tf_listener_->waitForTransform("odom", grasp->header.frame_id, now, ros::Duration(2.0));
-  tf_listener_->lookupTransform("odom", grasp->header.frame_id,
-                                ros::Time(0)// now
-                                , tf_transform);
-  Eigen::Affine3d transform;
-  tf::transformTFToEigen(tf_transform, transform);
+  Eigen::Affine3d transform = getTransform("triger_base_map", grasp->header.frame_id);
   grasp_array_odom.clear();
   com_array_odom.clear();
   for (int i=0; i<grasp->poses.size(); i++) {
@@ -157,7 +152,7 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   debug_img = cv::imread("/home/leus/.ros/left0000.jpg");
 
   // move to camera frame
-  Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "odom");
+  Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "/triger_base_map");
   // project all grasps to movement
   bool model_success_p = model_.fromCameraInfo(cam_info_);
   if (!model_success_p) {
@@ -165,10 +160,10 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     return false;
   }
   int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks);
-  ROS_INFO("hand label! %d", hand_label);
+  ROS_INFO("label! %d", hand_label);
   int back_label = 0; // may be 0
   geometry_msgs::PoseArray second_grasp_pose_array;
-
+  geometry_msgs::PoseArray second_grasp_pose_array_debug;
   // get transform
   for (size_t i = 0; i < com_array_odom.size(); i++) {
     Eigen::Vector3d grasp_cam;
@@ -182,12 +177,23 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
       tf::poseEigenToMsg(grasp_array_odom[i], grasp_pose);
       second_grasp_pose_array.poses.push_back(grasp_pose);
     }
+    else {
+      geometry_msgs::Pose grasp_pose;
+      Eigen::Affine3d debug_grasp = grasp_array_odom[i];
+      debug_grasp.translation() = grasp_cam;
+      tf::poseEigenToMsg(debug_grasp, grasp_pose);
+      second_grasp_pose_array_debug.poses.push_back(grasp_pose);
+    }
   }
-  second_grasp_pose_array.header.frame_id = "odom";
+  second_grasp_pose_array.header.frame_id = "/triger_base_map";
   second_grasp_pose_array.header.stamp = ros::Time::now();
+  second_grasp_pose_array_debug.header = second_grasp_pose_array.header;
+  second_grasp_pose_array_debug.header.frame_id = cam_info_->header.frame_id; // debug
   second_grasp_array_pub_->publish(second_grasp_pose_array);
+  second_grasp_array_debug_pub_->publish(second_grasp_pose_array_debug);
+
   res.second_grasp_pose_array = second_grasp_pose_array;
-  cv::imshow("debug_moseg", debug_img);
+  // cv::imshow("debug_moseg", debug_img);
   cv::imwrite("/home/leus/.ros/test.jpg", debug_img);
   return true;
 }
@@ -197,6 +203,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "second_grasp_finder");
   ros::NodeHandle n;
   second_grasp_array_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000));
+  second_grasp_array_debug_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array_false", 1000));
   tf_listener_ = new tf::TransformListener();
   message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "/grasp_finder_left/grasp_caluculation_result", 1);
   message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "/grasp_finder_left/grasp_caluculation_com_result", 1);
@@ -206,5 +213,7 @@ int main(int argc, char **argv)
   sync.registerCallback(boost::bind(&graspPoseCallback, _1, _2));
   ros::Subscriber sub = n.subscribe("camera_info", 1000, cameraInfoCallback);
   ros::ServiceServer service = n.advertiseService("second_grasp", loadMovementFile);
+  grasp_array_odom.clear();
+  com_array_odom.clear();
   ros::spin();
 }
