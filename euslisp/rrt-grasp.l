@@ -13,7 +13,7 @@
   (:collision-free ;; need to implement this
    ()
    (not (check-collision :obj *tmp-world* 
-                         :link-list (send *robot* :rarm :links)
+                         :link-list (send *robot* arm :links)
                          ;; :hand? t
                          )
         )
@@ -54,37 +54,9 @@
         (return-from :clear-func t)
       (return-from :clear-func nil)
       )
-    ;; (service-call-for-grasp s)
     )
   (:ik-func (robot arm coords)
-    (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target (send *robot* :rarm :end-coords) :rotation-axis t)
-    )
-  )
-
-(defun service-call-for-grasp 
-  (s)
-  (ros::ros-info "try clear func!")
-  (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
-  (send *irtviewer* :draw-objects)
-  (setq grasp-coords (send (send robot arm :end-coords :copy-worldcoords) :transform (send (send *hand-coords* :copy-worldcoords) :inverse-transformation)))
-  (setq grasp-coords (send (send (send trans-ground->kinfu :copy-worldcoords) :inverse-transformation)
-                           :transform grasp-coords))
-  (let*
-      ((pose-msg (ros::coords->tf-pose grasp-coords))
-       (req (instance openrave_test::GraspAssessRequest :init))
-       res)
-    (send req :pose_stamped (instance geometry_msgs::PoseStamped :init :pose pose-msg :header (instance std_msgs::Header :init :frame_id "ground" :stamp (ros::time-now))))
-    (setq res (ros::service-call "/grasp_assess" req))
-    (setq *res* res)
-    (if (> (send res :assessment_point) 1e-6)
-        (progn
-          (setq *final-res* res)
-          (send *robot* :rarm :inverse-kinematics (send (send (send trans-ground->kinfu :copy-worldcoords) :transform (ros::tf-pose->coords (send *final-res* :assessed_pose_stamped :pose))) :transform (send *hand-coords* :copy-worldcoords)))
-          (send *irtviewer* :draw-objects)
-          (return-from :clear-func t)
-          )
-      (return-from :clear-func nil)
-      )
+    (send robot arm :inverse-kinematics coords :stop 5 :debug-view :no-message :warnp nil :move-target (send *robot* arm :end-coords) :rotation-axis t)
     )
   )
 
