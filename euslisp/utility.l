@@ -1,7 +1,6 @@
+
 (defun fullbody-ik
   (tc-hand)
-  (send *robot* :reset-manip-pose)
-  (send *robot* :fix-leg-to-coords (make-coords))
   (let (tc)
     (setq tc
           (list
