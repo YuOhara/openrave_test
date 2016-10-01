@@ -18,6 +18,7 @@
 #include <math.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <openrave_test/RaveGraspArray.h>
 
 /**
  * This tutorial demonstrates simple receipt of messages over the ROS system.
@@ -38,10 +39,13 @@ public:
 
 sensor_msgs::CameraInfo::ConstPtr cam_info_;
 image_geometry::PinholeCameraModel model_;
-tf::TransformListener *tf_listener_;std::vector<Eigen::Affine3d> grasp_array_odom;
+tf::TransformListener *tf_listener_;
+std::vector<Eigen::Affine3d> grasp_array_odom;
 std::vector<Eigen::Vector3d> com_array_odom;
+std::vector<std_msgs::Float32MultiArray> finger_angle_array_;
 ros::Publisher *second_grasp_array_pub_;
 ros::Publisher *second_grasp_array_debug_pub_;
+ros::Publisher *second_rave_grasp_array_pub_;
 cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
 
 void readTracks(std::vector<CSimpleTrack> &mTracks) {
@@ -89,7 +93,7 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
 {
   double min = 10000;
   int label = -1;
-  for (size_t j = 0; j < mTracks.size(); j++) {
+  for (int j = 0; j < mTracks.size(); j++) {
     double dist = pow((x - mTracks[j].mPoints.front().x), 2.0) + pow((y - mTracks[j].mPoints.front().y), 2.0);
     if (min > dist){
       label = mTracks[j].mLabel;
@@ -112,9 +116,11 @@ int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks)
     return getLabel(uv.x, uv.y, mTracks);
 }
 
-void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geometry_msgs::PoseArrayConstPtr& com)
+void graspPoseCallback(const openrave_test::RaveGraspArrayConstPtr& rave_grasp, const geometry_msgs::PoseArrayConstPtr& com)
 {
   // transform to odom frame
+  const geometry_msgs::PoseArray *grasp;
+  grasp = &(rave_grasp -> pose_array);
   ROS_INFO("recieve grasp coords");
   Eigen::Affine3d transform = getTransform("triger_base_map", grasp->header.frame_id);
   grasp_array_odom.clear();
@@ -129,6 +135,7 @@ void graspPoseCallback(const geometry_msgs::PoseArrayConstPtr& grasp, const geom
     com_affine = transform * com_affine;
     grasp_array_odom.push_back(grasp_affine);
     com_array_odom.push_back(com_affine);
+    finger_angle_array_.push_back(rave_grasp->grasp_array[i]);
   }
 }
 
@@ -165,7 +172,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   geometry_msgs::PoseArray second_grasp_pose_array;
   geometry_msgs::PoseArray second_grasp_pose_array_debug;
   // get transform
-  for (size_t i = 0; i < com_array_odom.size(); i++) {
+  std::vector<std_msgs::Float32MultiArray> finger_angle_array_out;
+  for (int i = 0; i < com_array_odom.size(); i++) {
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
     int label = getLabel(grasp_cam, mTracks);
@@ -176,6 +184,7 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
       geometry_msgs::Pose grasp_pose;
       tf::poseEigenToMsg(grasp_array_odom[i], grasp_pose);
       second_grasp_pose_array.poses.push_back(grasp_pose);
+      finger_angle_array_out.push_back(finger_angle_array_[i]);
     }
     else {
       geometry_msgs::Pose grasp_pose;
@@ -191,7 +200,9 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   second_grasp_pose_array_debug.header.frame_id = cam_info_->header.frame_id; // debug
   second_grasp_array_pub_->publish(second_grasp_pose_array);
   second_grasp_array_debug_pub_->publish(second_grasp_pose_array_debug);
-
+  openrave_test::RaveGraspArray second_rave_grasp_array;
+  second_rave_grasp_array.pose_array = second_grasp_pose_array;
+  second_rave_grasp_array.grasp_array = finger_angle_array_out;
   res.second_grasp_pose_array = second_grasp_pose_array;
   // cv::imshow("debug_moseg", debug_img);
   cv::imwrite("/home/leus/.ros/test.jpg", debug_img);
@@ -204,10 +215,11 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
   second_grasp_array_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000));
   second_grasp_array_debug_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array_false", 1000));
+  second_rave_grasp_array_pub_ = new ros::Publisher(n.advertise<openrave_test::RaveGraspArray>("second_rave_grasp_array", 1000));
   tf_listener_ = new tf::TransformListener();
-  message_filters::Subscriber<geometry_msgs::PoseArray> grasp_sub(n, "/grasp_finder_left/grasp_caluculation_result", 1);
+  message_filters::Subscriber<openrave_test::RaveGraspArray> grasp_sub(n, "/grasp_finder_left/rave_grasp_result", 1);
   message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "/grasp_finder_left/grasp_caluculation_com_result", 1);
-  typedef message_filters::sync_policies::ExactTime<geometry_msgs::PoseArray, geometry_msgs::PoseArray> MySyncPolicy;
+  typedef message_filters::sync_policies::ExactTime<openrave_test::RaveGraspArray, geometry_msgs::PoseArray> MySyncPolicy;
   // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
   message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), grasp_sub, com_sub);
   sync.registerCallback(boost::bind(&graspPoseCallback, _1, _2));
