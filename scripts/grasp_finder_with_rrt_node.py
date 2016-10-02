@@ -82,7 +82,7 @@ def callback(box):
 
 def initialize_env(left_hand):
     env=Environment()
-    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
+    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/config/hand_and_world.env.xml')
     hand1 = env.GetRobots()[0]
     hand2 = env.GetRobots()[1]
     robot = hand2 if left_hand else hand1
