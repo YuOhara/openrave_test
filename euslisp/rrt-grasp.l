@@ -47,9 +47,9 @@
 (defmethod rrt-jt-multigoal
   (:clear-func (s)
     (ros::ros-info "try clear func!")
-    (send *robot* :rarm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
+    (send *robot* arm :angle-vector (send (elt (send s :solution-nodes) (- (length (send s :solution-nodes)) 1)) :state))
     (if
-        (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+        (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0))
         (return-from :clear-func t)
       (return-from :clear-func nil)
       )
@@ -138,10 +138,11 @@
 
 (defun callback-common (msg2 arm &key (initialize? nil))
   (setq msg (send msg2 :pose_array))
+  (setq *finger* (send msg2 :grasp_array))
   (setq trans-ground->kinfu
         (get-trans msg))
   ;; (ros::service-call "/file_getter" (instance std_srvs::Emptyrequest :init))
-  (setq *wgrs* (set-wgrs msg))
+  (setq *wgrs* (set-wgrs msg arm))
   (if initialize?
     (progn
       (load "/home/leus/.ros/tmp_model.l")
@@ -153,6 +154,7 @@
       )
     )
   (setq *ret* (solve-rrt *wgrs* arm))
+  (send *robot* :hand :rarm :angle-vector (v+ (return-finger-param) (float-vector 0 -10 10 0 10 10)))
   ;; (send *robot* :fix-leg-to-coords (make-coords))
   ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))  
   )
@@ -179,7 +181,27 @@
   (send *solver* :solve)
   )
 
-(defun set-wgrs (msg)
+(defun return-finger-param ()
+  (let (
+        (answer nil)
+        (min-dist 10000)
+        (state (send (elt (send *ret* :solution-nodes) (- (length (send *ret* :solution-nodes)) 1)) :state))
+        )
+      (send *robot* :rarm :angle-vector state)
+      (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+      (dotimes (i (length lst))
+        (let ((dist-tmp (norm (v- (send (elt lst i) :worldpos) (send (send *robot* :rarm :end-coords :copy-worldcoords) :worldpos)))))
+          (if (< dist-tmp min-dist)
+              (setq min-dist dist-tmp)
+            (setq answer i)
+            )
+          )
+        )
+      (coerce (mapcar #'rad2deg (coerce (send (elt *finger* answer) :data) cons)) float-vector)
+      )
+  )
+
+(defun set-wgrs (msg arm)
   (setq lst nil)
   (let (wgrs)
     (setq wgrs nil)
@@ -187,18 +209,18 @@
       (let ((trs
              (send (send trans-ground->kinfu :copy-worldcoords)
                    :transform (ros::tf-pose->coords  obj))))
-        (send trs :translate (float-vector 0 -50 50)) ;; offset for avoid collision
-      (send trs :transform (send *hand-coords* :copy-worldcoords))
-      ;; (send trs :rotate (deg2rad -90) :y)
-      ;; (send trs :rotate (deg2rad -180) :y)
-      (let
-          ((trs-0 (send trs :copy-worldcoords)))
-        (push trs-0 lst)
-        (push
-         (instance workspace-goal-region :init trs-0 :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
-         wgrs)
-        )
-      ))
+        (send trs :transform (send *hand-coords* :copy-worldcoords))
+        (send trs :translate (float-vector -50 (if (equal arm :rarm) -50 50) 0)) ;; offset for avoid collision
+        ;; (send trs :rotate (deg2rad -90) :y)
+        ;; (send trs :rotate (deg2rad -180) :y)
+        (let
+            ((trs-0 (send trs :copy-worldcoords)))
+          (push trs-0 lst)
+          (push
+           (instance workspace-goal-region :init trs-0 :min-range (float-vector 0 0 0 0 0 0) :max-range (float-vector 0 0 0 0 0 0))
+           wgrs)
+          )
+        ))
     wgrs
     )
   )
@@ -312,7 +334,11 @@
   (unix::system "./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation")
   )
 
+(defun look-around1 ()
+  (progn (bend-legs) (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
+  )
+
 (ros::roseus "sample-grasp-node")
 (init-robot)
 (ros::subscribe "/grasp_finder_right/rave_grasp_result" openrave_test::RaveGraspArray #'callback)
-(ros::subscribe "/second_grasp_array" openrave_test::RaveGraspArray #'callback3)
+(ros::subscribe "/second_rave_grasp_array" openrave_test::RaveGraspArray #'callback3)

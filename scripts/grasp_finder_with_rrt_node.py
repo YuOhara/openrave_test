@@ -319,6 +319,7 @@ def try_grasp():
     pose_array_pub.publish(pose_array_msg)
     rave_grasp_array_msg = RaveGraspArray()
     rave_grasp_array_msg.pose_array = pose_array_msg
+    rave_grasp_array_msg.header = pose_array_msg.header
     rave_grasp_array_msg.grasp_array = float_array_msg_list
     grasp_array_pub.publish(rave_grasp_array_msg)
     show_result(success_grasp_list, grasper, env)

@@ -203,6 +203,7 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   openrave_test::RaveGraspArray second_rave_grasp_array;
   second_rave_grasp_array.pose_array = second_grasp_pose_array;
   second_rave_grasp_array.grasp_array = finger_angle_array_out;
+  second_rave_grasp_array_pub_->publish(second_rave_grasp_array);
   res.second_grasp_pose_array = second_grasp_pose_array;
   // cv::imshow("debug_moseg", debug_img);
   cv::imwrite("/home/leus/.ros/test.jpg", debug_img);
