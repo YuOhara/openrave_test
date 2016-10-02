@@ -11,16 +11,4 @@
     <!-- <Translation>0 0.08 -0.16</Translation> -->
     <!-- <direction>0 0 -1.0</direction> -->
   </Manipulator>
-<!-- <Robot file="/home/leus/.local/share/Trash/files/usb_back/old/.Trash-999/files/fuerte/jsk-ros-pkg/jsk_model_tools/euscollada/pr2.dae"> -->
-<!-- <Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/SampleRobot.dae"> -->
-
-<!-- <Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/HRP2JSKNTS.dae"> -->
-<!--   <Manipulator name="hand"> -->
-<!--     <base>CHEST_LINK0</base> -->
-<!--     <effector>CHEST_LINK0</effector> -->
-<!--     <Translation>0 0.04 -0.15</Translation> -->
-<!--     <joints>RARM_JOINT3 LARM_JOINT3</joints> -->
-<!--     <closingdirection>-1 -1</closingdirection> -->
-<!--     <direction>1 0 0</direction> -->
-<!--   </Manipulator> -->
 </Robot>
