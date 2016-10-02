@@ -45,6 +45,12 @@ add_executable(second_grasp_finder src/second_grasp_finder.cpp)
 target_link_libraries(second_grasp_finder ${catkin_LIBRARIES})
 
 set(HRPSYS_ROS_BRIDGE_TUTORIALS_DIRECTORY ${hrpsys_ros_bridge_tutorials_SOURCE_PREFIX})
+set(OPENRAVE_TEST_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp_hand_r.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp_hand_r.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp_hand_l.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp_hand_l.xml)
+configure_file(${PROJECT_SOURCE_DIR}/scripts/hand_and_world.env.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hand_and_world.env.xml)
+configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh.xml)
+configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh0.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh0.xml)
+configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh_estimated.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh_estimated.xml)
+configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp.env.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp.env.xml)

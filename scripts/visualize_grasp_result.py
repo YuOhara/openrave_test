@@ -1,7 +1,7 @@
 from openravepy import *
 import numpy, time
 env=Environment()
-env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
+env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/config/hand_and_world.env.xml')
 # env.Load('data/lab1.env.xml')
 env.SetViewer('qtcoin')
 robot = env.GetRobots()[0]

@@ -88,7 +88,7 @@ def try_grasp():
     box = pickle.load(f)
     f.close()
     env=Environment()
-    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/hand_and_world.env.xml')
+    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/config/hand_and_world.env.xml')
     env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
     target1 = env.GetKinBody('mug1')

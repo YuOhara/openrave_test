@@ -1,9 +1,0 @@
-<KinBody name="mug">
-  <RotationAxis>1 0 0 90</RotationAxis>
-  <Body name = "mugbase" type="dynamic">
-    <Geom type="trimesh">
-      <Data>/tmp/model.dae</Data>
-      <Render>/tmp/model.dae</Render>
-    </Geom>
-  </Body>
-</KinBody>
