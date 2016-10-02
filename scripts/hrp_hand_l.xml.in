@@ -1,4 +1,4 @@
-<Robot file="/home/leus/ros/indigo/src/rtm-ros-robotics/rtmros_tutorials/hrpsys_ros_bridge_tutorials/models/HRP3HAND_L.dae">
+<Robot file="${HRPSYS_ROS_BRIDGE_TUTORIALS_DIRECTORY}/models/HRP3HAND_L.dae">
   <Manipulator name="hand">
     <base>LARM_LINK6</base>
     <effector>LARM_LINK6</effector>
