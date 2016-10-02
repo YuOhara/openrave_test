@@ -49,8 +49,12 @@ set(OPENRAVE_TEST_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp_hand_r.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp_hand_r.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp_hand_l.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp_hand_l.xml)
+<<<<<<< HEAD
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hand_and_world.env.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hand_and_world.env.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh0.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh0.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/kinfu_mesh_estimated.kinbody.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/kinfu_mesh_estimated.xml)
 configure_file(${PROJECT_SOURCE_DIR}/scripts/hrp.env.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hrp.env.xml)
+=======
+configure_file(${PROJECT_SOURCE_DIR}/scripts/hand_and_world.env.xml.in ${PROJECT_SOURCE_DIR}/scripts/config/hand_and_world.env.xml)
+>>>>>>> ef22cc5f448467883ec3b1c9f511bb67aae48e2f
