@@ -12,7 +12,7 @@
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
    ()
-   (not (check-collision :obj *tmp-world* 
+   (not (check-collision :obj *tmp-world*
                          :link-list (send *robot* arm :links)
                          ;; :hand? t
                          )
@@ -90,7 +90,8 @@
   (setq *robot* *hrp2jsknts*)
   (unless (boundp '*tfl*)
     (setq *tfl* (instance ros::transform-listener :init)))
-  (setq *hand-coords*  (send (send (send *robot* :hand :rarm) :copy-worldcoords) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
+  (setq *hand-coords-r*  (send (send (send *robot* :hand :rarm) :copy-worldcoords) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
+  (setq *hand-coords-l*  (send (send (send *robot* :hand :larm) :copy-worldcoords) :transformation (send (send *robot* :larm :end-coords) :copy-worldcoords)))
   (setq *hand-new-endcoords*
         (make-cascoords
          :coords
@@ -154,7 +155,7 @@
       )
     )
   (setq *ret* (solve-rrt *wgrs* arm))
-  (send *robot* :hand :rarm :angle-vector (v+ (return-finger-param) (float-vector 0 -10 10 0 10 10)))
+  (send *robot* :hand arm :angle-vector (v+ (return-finger-param arm) (float-vector 0 -10 10 0 10 10)))
   ;; (send *robot* :fix-leg-to-coords (make-coords))
   ;; (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 200 0)))  
   )
@@ -167,30 +168,30 @@
   (callback-common msg :larm :initialize? nil)
   )
 
-(defun solve-rrt (wgrs rarm)
+(defun solve-rrt (wgrs arm)
   (setq *solver*
         (instance rrt-jt-multigoal :init
                   *robot*
-                  :rarm
+                  arm
                   wgrs
                   :stop 2000
                   ;; :end-coords *hand-new-endcoords*
-                  :end-coords (send *robot* :rarm :end-coords)
+                  :end-coords (send *robot* arm :end-coords)
                   ))
   ;; (setf (send *robot* :rarm :end-coords) *hand-new-endcoords*)
   (send *solver* :solve)
   )
 
-(defun return-finger-param ()
+(defun return-finger-param (arm)
   (let (
         (answer nil)
         (min-dist 10000)
         (state (send (elt (send *ret* :solution-nodes) (- (length (send *ret* :solution-nodes)) 1)) :state))
         )
-      (send *robot* :rarm :angle-vector state)
-      (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
+      (send *robot* arm :angle-vector state)
+      (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0))
       (dotimes (i (length lst))
-        (let ((dist-tmp (norm (v- (send (elt lst i) :worldpos) (send (send *robot* :rarm :end-coords :copy-worldcoords) :worldpos)))))
+        (let ((dist-tmp (norm (v- (send (elt lst i) :worldpos) (send (send *robot* arm :end-coords :copy-worldcoords) :worldpos)))))
           (if (< dist-tmp min-dist)
               (setq min-dist dist-tmp)
             (setq answer i)
@@ -209,7 +210,7 @@
       (let ((trs
              (send (send trans-ground->kinfu :copy-worldcoords)
                    :transform (ros::tf-pose->coords  obj))))
-        (send trs :transform (send *hand-coords* :copy-worldcoords))
+        (send trs :transform (send (if (equal arm :rarm ) *hand-coords-r* *hand-coords-l*) :copy-worldcoords))
         (send trs :translate (float-vector -50 (if (equal arm :rarm) -50 50) 0)) ;; offset for avoid collision
         ;; (send trs :rotate (deg2rad -90) :y)
         ;; (send trs :rotate (deg2rad -180) :y)
@@ -226,9 +227,9 @@
   )
 
 (defun show-motion
-  ()
+  (arm)
   (dolist (state (send-all (send *ret* :solution-nodes) :state))
-    (send *robot* :rarm :angle-vector state)
+    (send *robot* arm :angle-vector state)
     (send *irtviewer* :draw-objects)
     (read-line))
   )
@@ -245,21 +246,21 @@
   )
 
 (defun do-motion
-  ()
+  (arm)
   (open-hand)
   (go-pos-exec)
   (reset-manip-pose-with-bend)
   (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
   (send *ri* :wait-interpolation)
   (dolist (state (send-all (send *ret* :solution-nodes) :state))
-    (send *robot* :rarm :angle-vector state)
+    (send *robot* arm :angle-vector state)
     (send *irtviewer* :draw-objects)
     (send *ri* :angle-vector (send *robot* :angle-vector) 2000)
     (send *ri* :wait-interpolation)
     )
   ;; offset
-  (send *robot* :rarm :move-end-pos (float-vector 50 50 0))
-  (send *robot* :look-at-target (send *robot* :rarm :end-coords))
+  (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0))
+  (send *robot* :look-at-target (send *robot* arm :end-coords))
   (send *ri* :angle-vector (send *robot* :angle-vector) 5000)
   (send *ri* :wait-interpolation)
   (close-hand)
@@ -294,19 +295,19 @@
   ;; file size is given
   )
 (defun open-hand
-  ()
-  (send *robot* :hand :rarm :angle-vector (float-vector 90.0 90.0 0.0 0.0 -40.0 -40.0))
+  (arm)
+  (send *robot* :hand arm :angle-vector (float-vector 90.0 90.0 0.0 0.0 -40.0 -40.0))
   (hand-model2real)
   )
 (defun close-hand
-  ()
-  (send *robot* :hand :rarm :r_thumbcm_p :joint-angle -30)
+  (arm)
+  (send *robot* :hand arm :r_thumbcm_p :joint-angle -30)
   (hand-model2real)
-  (send *robot* :hand :rarm :r_middlepip_r :joint-angle 110)
+  (send *robot* :hand arm :r_middlepip_r :joint-angle 110)
   (hand-model2real)
-  (send *robot* :hand :rarm :r_indexmp_r :joint-angle 30)
+  (send *robot* :hand arm :r_indexmp_r :joint-angle 30)
   (hand-model2real)
-  (send *robot* :hand :rarm :r_indexpip_r :joint-angle 60)
+  (send *robot* :hand arm :r_indexpip_r :joint-angle 60)
   (hand-model2real)
   )
 
