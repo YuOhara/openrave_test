@@ -19,7 +19,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <openrave_test/RaveGraspArray.h>
-
+#include <rospack/rospack.h>
 /**
  * This tutorial demonstrates simple receipt of messages over the ROS system.
  */
@@ -50,7 +50,17 @@ cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
 
 void readTracks(std::vector<CSimpleTrack> &mTracks) {
   // open a file
-  std::ifstream aFile("/home/leus/ros/indigo/src/openrave_test/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat");
+
+  rospack::Rospack rp;
+  std::vector<std::string> search_path;
+  rp.getSearchPathFromEnv(search_path);
+  rp.crawl(search_path, 1);
+  std::string path;
+  if (rp.find("openrave_test",path)==false) {
+    ROS_ERROR("openrave_test not found!");
+    return;
+  }
+  std::ifstream aFile((path + std::string("/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat")).c_str());
   // Read number of frames considered
   int mSequenceLength;
   aFile >> mSequenceLength;
@@ -156,8 +166,11 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   std::vector<CSimpleTrack> mTracks;
   readTracks(mTracks);
   // debug_img = cv::Mat::zeros(cam_info_->height, cam_info_->width, CV_8UC3);
-  debug_img = cv::imread("/home/leus/.ros/left0000.jpg");
-
+  {
+    std::stringstream ss;
+    ss << std::getenv("HOME") << "/.ros/left0000.jpg";
+    debug_img = cv::imread(ss.str().c_str());
+  }
   // move to camera frame
   Eigen::Affine3d transform = getTransform(cam_info_->header.frame_id, "/triger_base_map");
   // project all grasps to movement
@@ -206,7 +219,11 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   second_rave_grasp_array_pub_->publish(second_rave_grasp_array);
   res.second_grasp_pose_array = second_grasp_pose_array;
   // cv::imshow("debug_moseg", debug_img);
-  cv::imwrite("/home/leus/.ros/test.jpg", debug_img);
+  {
+    std::stringstream ss;
+    ss << std::getenv("HOME") << "/.ros/test.jpg";
+    cv::imwrite(ss.str().c_str(), debug_img);
+  }
   return true;
 }
 

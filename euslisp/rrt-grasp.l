@@ -146,7 +146,7 @@
   (setq *wgrs* (set-wgrs msg arm))
   (if initialize?
     (progn
-      (load "/home/leus/.ros/tmp_model.l")
+      (load "~/.ros/tmp_model.l")
       (tmp-world)
       (send *tmp-world* :newcoords (send trans-ground->kinfu :copy-worldcoords))
       (objects (list *robot* *tmp-world*))

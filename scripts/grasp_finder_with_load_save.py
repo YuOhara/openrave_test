@@ -14,15 +14,17 @@ import commands
 from pickle import *
 import sys
 
+HOME_PATH = os.environ.get("HOME")
+
 if __name__ == '__main__':
     formatstring = sys.argv[1]
-    f = open('/home/leus/.ros/grasps/grasp_%s.txt' % (formatstring))
+    f = open('%s/.ros/grasps/grasp_%s.txt' % (HOME_PATH, formatstring))
     approachrays = pickle.load(f)
     f.close()
     success_grasp_list = []
     half_success_grasp_list = []
     left_hand = True if "left" in formatstring else False
     grasp_finder_with_rrt_node.trial(approachrays, success_grasp_list, half_success_grasp_list, len(approachrays), left_hand)
-    f2 = open('/home/leus/.ros/grasps/result_%s.txt' % (formatstring) , 'w')
+    f2 = open('%s/.ros/grasps/result_%s.txt' % (HOME_PATH, formatstring) , 'w')
     pickle.dump(success_grasp_list, f2)
     f2.close()

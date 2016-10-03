@@ -11,6 +11,9 @@ import tf
 from tf import transformations
 import commands
 
+HOME_PATH = os.environ.get("HOME")
+OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
+
 def return_rave_params(gmodel, box, approachrays=None):
     friction = None
     preshapes = None
@@ -59,24 +62,11 @@ def callback(box):
     rospy.loginfo("save mesh end")
 
     ## change ply -> dae
-    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh.ply -o /home/leus/.ros/mesh.dae")
+    check = commands.getoutput("meshlabserver -i ~/.ros/mesh.ply -o ~/.ros/mesh.dae")
     print check
-    # check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
-    # print check
-    # check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
-    # print check
-    # check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae $(rospack find openrave_test)/scripts/tmp_model.l")
-    # print check
-    ## estimated
-    check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated.ply -o /home/leus/.ros/mesh_estimated.dae")
+    check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated.ply -o ~/.ros/mesh_estimated.dae")
     print check
-    # check = commands.getoutput("cp /home/leus/.ros/mesh_estimated.dae $(rospack find openrave_test)/scripts/mesh_estimated.dae")
-    # print check
-    # check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model_estimated.urdf $(rospack find openrave_test)/scripts/tmp_model_estimated.dae")
-    # print check
-    # check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae $(rospack find openrave_test)/scripts/tmp_model_estimated.l")
-    # print check
-    f = open('/home/leus/.ros/temp_box.txt', 'w')
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
     pickle.dump(box, f)
     f.close()
     try_grasp()
@@ -84,11 +74,11 @@ def callback(box):
 def try_grasp():
     global env, robot, target1, target2, taskmanip, gmodel1, gmodel2, manip, manipulatordirection
     # pickle
-    f = open('/home/leus/.ros/temp_box.txt')
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
     env=Environment()
-    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/config/hand_and_world.env.xml')
+    env.Load('%s/config/hand_and_world.env.xml' % OPENRAVE_TEST_PATH)
     env.SetViewer('qtcoin')
     robot = env.GetRobots()[0]
     target1 = env.GetKinBody('mug1')

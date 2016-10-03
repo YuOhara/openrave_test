@@ -20,8 +20,13 @@ from jsk_interactive_marker.msg import *
 from jsk_interactive_marker.srv import *
 from multiprocessing import Process, Queue
 import os.path
+import os
+import rospkg
 
 debug_mode = False
+HOME_PATH = os.environ.get("HOME")
+OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
+
 def callback(box):
     print "callback start!"
     listener = tf.TransformListener()
@@ -48,41 +53,41 @@ def callback(box):
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
         rospy.loginfo("save mesh end")
         ## change ply -> dae
-        check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh.ply -o /home/leus/.ros/mesh.dae")
+        check = commands.getoutput("meshlabserver -i ~/.ros/mesh.ply -o ~/.ros/mesh.dae")
         print check
-        check = commands.getoutput("cp /home/leus/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+        check = commands.getoutput("cp ~/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
         print check
         check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
         print check
-        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae /home/leus/.ros/tmp_model.l")
+        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae %s/.ros/tmp_model.l" % HOME_PATH)
         # print check
         ## estimated
         check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model_estimated.urdf $(rospack find openrave_test)/scripts/tmp_model_estimated.dae")
         print check
-        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae /home/leus/.ros/tmp_model_estimated.l")
+        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae %s/.ros/tmp_model_estimated.l" % HOME_PATH)
         # print check
         # pickle
-        f = open('/home/leus/.ros/temp_box.txt', 'w')
+        f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
         pickle.dump(box, f)
         f.close()
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=/home/leus/.ros/mesh_estimated.ply _output_file_name:=/home/leus/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh_estimated.ply _output_file_name:=%s/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
         print check
-        check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh_estimated2.ply -o /home/leus/.ros/mesh_estimated2.dae")
+        check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
         print check
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=/home/leus/.ros/mesh.ply _output_file_name:=/home/leus/.ros/mesh0.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w))
+        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh.ply _output_file_name:=%s/.ros/mesh0.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
         print check
-        check = commands.getoutput("meshlabserver -i /home/leus/.ros/mesh0.ply -o /home/leus/.ros/mesh0.dae")
+        check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh0.dae")
         print check
     else:
-        commands.getoutput("rm /home/leus/.ros/temp_box.txt")
-        while not os.path.exists('/home/leus/.ros/temp_box.txt'):
+        commands.getoutput("rm ~/.ros/temp_box.txt")
+        while not os.path.exists('%s/.ros/temp_box.txt' % HOME_PATH):
             rospy.loginfo("wait for right")
             time.sleep(10)
     try_grasp()
 
 def initialize_env(left_hand):
     env=Environment()
-    env.Load('/home/leus/ros/indigo/src/openrave_test/scripts/config/hand_and_world.env.xml')
+    env.Load('%s/scripts/config/hand_and_world.env.xml' % OPENRAVE_TEST_PATH)
     hand1 = env.GetRobots()[0]
     hand2 = env.GetRobots()[1]
     robot = hand2 if left_hand else hand1
@@ -101,7 +106,7 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
     ps = []
     for i in range(thread_num):
         approachrays_save = approachrays[len_approach/thread_num*i: len_approach/thread_num*(i+1)]
-        f2 = open('/home/leus/.ros/grasps/grasp_%s%d.txt' % (formatstring, i) , 'w')
+        f2 = open('%s/.ros/grasps/grasp_%s%d.txt' % (HOME_PATH, formatstring, i) , 'w')
         pickle.dump(approachrays_save, f2)
         f2.close()
         p = Process(target=load_and_save_trial_single, args=(i, formatstring))
@@ -110,7 +115,7 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
         print i
     for i in range(thread_num):
         ps[i].join()
-        f = open('/home/leus/.ros/grasps/result_%s%d.txt' % (formatstring, i))
+        f = open('%s/.ros/grasps/result_%s%d.txt' % (HOME_PATH, formatstring, i))
         success_grasp_list_load = pickle.load(f)
         success_grasp_list.extend(success_grasp_list_load)
         f.close()
@@ -242,7 +247,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
 def try_grasp():
     # pickle
     left_hand = rospy.get_param("~left_hand", True)
-    f = open('/home/leus/.ros/temp_box.txt')
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
     if left_hand:

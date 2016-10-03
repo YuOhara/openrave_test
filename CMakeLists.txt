@@ -13,6 +13,7 @@ find_package(catkin REQUIRED
   tf_conversions
   eigen_conversions
   hrpsys_ros_bridge_tutorials
+  rospack
   )
 
 add_message_files(FILES
