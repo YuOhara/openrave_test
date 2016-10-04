@@ -90,8 +90,8 @@ Eigen::Affine3d getTransform(std::string from, std::string to) {
   ros::Time now = ros::Time::now();
   tf_listener_->waitForTransform(from, to, now, ros::Duration(2.0));
   tf_listener_->lookupTransform(from, to,
-                                //ros::Time(0)
-                                now
+                                ros::Time(0)
+                                // now
                                 , tf_transform);
   Eigen::Affine3d transform;
   tf::transformTFToEigen(tf_transform, transform);

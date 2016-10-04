@@ -13,6 +13,7 @@ from openrave_test.srv import *
 import commands
 from pickle import *
 import sys
+import os
 
 HOME_PATH = os.environ.get("HOME")
 
