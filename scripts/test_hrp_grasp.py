@@ -1,7 +1,7 @@
 from openravepy import *
 import numpy, time
 env=Environment()
-env.Load('hrp.env.xml')
+env.Load('config/hrp.env.xml')
 # env.Load('data/lab1.env.xml')
 env.SetViewer('qtcoin')
 

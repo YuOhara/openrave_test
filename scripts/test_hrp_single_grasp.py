@@ -5,7 +5,7 @@ from openrave_test_utility import *
 print "hoge"
 env=Environment()
 print "huga"
-env.Load('hrp.env.xml')
+env.Load('config/hrp.env.xml')
 # env.Load('data/lab1.env.xml')
 # env.SetViewer('qtcoin')
 robot = env.GetRobots()[0]
