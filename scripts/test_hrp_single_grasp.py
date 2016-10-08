@@ -2,10 +2,12 @@ from openravepy import *
 import numpy, time
 from openrave_test_utility import *
 
+print "hoge"
 env=Environment()
+print "huga"
 env.Load('hrp.env.xml')
 # env.Load('data/lab1.env.xml')
-env.SetViewer('qtcoin')
+# env.SetViewer('qtcoin')
 robot = env.GetRobots()[0]
 target = env.GetKinBody('mug1')
 # gmodel = databases.grasping.GraspingModel(robot,target)

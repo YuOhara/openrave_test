@@ -10,6 +10,8 @@ import geometry_msgs.msg
 import tf
 from tf import transformations
 import commands
+import os
+import rospkg
 
 HOME_PATH = os.environ.get("HOME")
 OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
