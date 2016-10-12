@@ -124,19 +124,8 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
 def load_and_save_trial_single(index, formatstring):
     check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
 
-def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
-    approachrays_queue = Queue()
-    success_grasp_list_queue = Queue()
-    half_success_grasp_list_queue = Queue()
-    for approachray in approachrays:
-        approachrays_queue.put(approachray)
-    trial_queue(approachrays_queue, success_grasp_list_queue, half_success_grasp_list_queue, len_approach, left_hand)
-    while not success_grasp_list_queue.empty():
-        success_grasp_list.append(success_grasp_list_queue.get())
-    while not half_success_grasp_list_queue.empty():
-        half_success_grasp_list.append(half_success_grasp_list_queue.get())
 
-def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
+def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand)
     # debug
     if debug_mode:
@@ -146,8 +135,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
     preshape = final
     # preshape = robot.GetDOFValues(manip.GetGripperIndices())
     # for approachray in approachrays:
-    while not approachrays.empty():
-        approachray = approachrays.get()
+    for approachray in approachrays:
         standoffs = [0, 0.025]
         for standoff in standoffs:
             pose_msg = Pose()
@@ -204,7 +192,7 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                         # print "mindist! %f" % mindist
                         if mindist > 1e-9:
                             grasper.robot.SetTransform(finalconfig[1])
-                            env.UpdatePublishedBodies()
+                            # env.UpdatePublishedBodies()
                             Tgrasp = manip.GetEndEffectorTransform()
                             # Tgrasp = robot.GetTransform()
                             direction2, roll2, position2 = (direction, roll, approachray[0:3])# graspParamsFromPose(Tgrasp, manipulatordirection) # need debug, Tgrasp not changed?
@@ -219,22 +207,22 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                             robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
                             contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                             print "mindists %f %f" % (mindist, mindist2)
-                            if mindist > 1e-9 and mindist2 > 1e-9:
+                            if mindist > 1e-9 and mindist2 > 1e-9 and numpy.linalg.norm(finalconfig[1][:,3][0:3] - finalconfig2[1][:,3][0:3]) < 0.015:
                             # if True:
-                                grasper.robot.SetTransform(finalconfig[1])
-                                grasper.robot.SetDOFValues(finalconfig[0])
-                                drawContacts(contacts, grasper, env)
-                                env.UpdatePublishedBodies()
+                                # grasper.robot.SetTransform(finalconfig[1])
+                                # grasper.robot.SetDOFValues(finalconfig[0])
+                                # drawContacts(contacts, grasper, env)
+                                # env.UpdatePublishedBodies()
                                 # raw_input('press any key to continue:(1) ')
-                                grasper.robot.SetTransform(finalconfig2[1])
-                                grasper.robot.SetDOFValues(finalconfig2[0])
-                                drawContacts(contacts2, grasper, env)
-                                env.UpdatePublishedBodies()
+                                # grasper.robot.SetTransform(finalconfig2[1])
+                                # grasper.robot.SetDOFValues(finalconfig2[0])
+                                # drawContacts(contacts2, grasper, env)
+                                # env.UpdatePublishedBodies()
                                 # raw_input('press any key to continue:(2) ')
                                 grasper.robot.SetTransform(finalconfig[1])
-                                success_grasp_list.put([contacts, contacts2, finalconfig, finalconfig2])
+                                success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
                             else:
-                                half_success_grasp_list.put([contacts, contacts2, finalconfig, finalconfig2])
+                                half_success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
                         else:
                             mindist2 = 1.0
                         # print "hoge"
@@ -242,7 +230,6 @@ def trial_queue(approachrays, success_grasp_list, half_success_grasp_list, len_a
                     except (PlanningError), e:
                         print "warn! planning error occured!"
                         continue
-
 
 def try_grasp():
     # pickle
@@ -279,7 +266,6 @@ def try_grasp():
     show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
-
     len_approach = len(approachrays)
     print "len %d %d" % (len_approach,  approachrays.shape[0])
     try_num = 0
@@ -303,6 +289,17 @@ def try_grasp():
     print "Finished"
     print "Num!"
     print len(success_grasp_list)
+    dim = box.dimensions
+    dimx = dim.x/2
+    dimy = dim.y/2
+    dimz = dim.z/2
+    b_position = box.pose.position
+    p = numpy.array([b_position.x, b_position.y, b_position.z])
+    box_pose_mat = tf.listener.xyzw_to_mat44(box.pose.orientation)
+    box_pose_mat[:,3][0:3] = p
+    print "dims"
+    print dimx, dimy, dimz
+    full_success_grasp_list = []
     for grasp_node in success_grasp_list:
         contact_num = 0
         ave_x = ave_y = ave_z = 0
@@ -315,10 +312,17 @@ def try_grasp():
         temp_pose.position.x = ave_x/contact_num
         temp_pose.position.y = ave_y/contact_num
         temp_pose.position.z = ave_z/contact_num
-        com_array_msg.poses.append(temp_pose)
-        grasper.robot.SetTransform(grasp_node[3][1])
-        pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
-        float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
+        local_pos = numpy.dot(numpy.linalg.inv(box_pose_mat)
+                              , (temp_pose.position.x, temp_pose.position.y, temp_pose.position.z, 1))[0:3]
+        if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
+            print local_pos
+            com_array_msg.poses.append(temp_pose)
+            grasper.robot.SetTransform(grasp_node[2][1])
+            pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+            float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
+            full_success_grasp_list.append(grasp_node)
+    print "len after!"
+    print len(com_array_msg.poses)
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
     pose_array_pub.publish(pose_array_msg)
@@ -327,7 +331,7 @@ def try_grasp():
     rave_grasp_array_msg.header = pose_array_msg.header
     rave_grasp_array_msg.grasp_array = float_array_msg_list
     grasp_array_pub.publish(rave_grasp_array_msg)
-    show_result(success_grasp_list, grasper, env)
+    show_result(full_success_grasp_list, grasper, env)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 

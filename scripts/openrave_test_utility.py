@@ -12,7 +12,7 @@ def return_box_approach_rays(gmodel, box):
     # ode gives the most accurate rays
     rospy.loginfo("start approach rays")
     env = gmodel.env
-    delta = 0.02
+    delta = 0.01
     normalanglerange = 0
     target = gmodel.target
     cc = RaveCreateCollisionChecker(env,'ode')
@@ -21,7 +21,9 @@ def return_box_approach_rays(gmodel, box):
     orientation = box.pose.orientation
     # temp
     # from orientation
+    p = numpy.array([position.x, position.y, position.z])
     mat44 = tf.listener.xyzw_to_mat44(box.pose.orientation)
+    mat44[:,3][0:3] = p
     ex = mat44[:,0][0:3]
     ey = mat44[:,1][0:3]
     ez = mat44[:,2][0:3]
@@ -30,14 +32,13 @@ def return_box_approach_rays(gmodel, box):
         with target:
             # target.SetTransform(numpy.eye(4))
             # ab = target.ComputeAABB()
-            p = numpy.array([position.x, position.y, position.z])
-            dim.x = dim.x/2
-            dim.y = dim.y/2
-            dim.x = dim.z/2
-            dx = ex * dim.x
-            dy = ey * dim.y
-            dz = ez * dim.z
-            print "dims! %f %f %f" % (dim.x, dim.y, dim.z)
+            dimx = dim.x/2
+            dimy = dim.y/2
+            dimz = dim.z/2
+            dx = ex * dimx
+            dy = ey * dimy
+            dz = ez * dimz
+            print "dims! %f %f %f" % (dimx, dimy, dimz)
             sides = numpy.array((numpy.r_[dz, -ez, dx, dy],
                                  numpy.r_[-dz, ez, dx, dy],
                                  numpy.r_[dy, -ey, dx, dz],
@@ -45,7 +46,7 @@ def return_box_approach_rays(gmodel, box):
                                  numpy.r_[dx, -ex, dy, dz],
                                  numpy.r_[-dx, ex, dy, dz]
                        ))
-            maxlen = 2*numpy.sqrt(dim.x**2 + dim.y**2 + dim.z**2)+0.03
+            maxlen = 2*numpy.sqrt(dimx**2 + dimy**2 + dimz**2)+0.03
             approachrays = numpy.zeros((0,6))
             for side in sides:
                 ex = numpy.sqrt(sum(side[6:9]**2))
@@ -63,6 +64,12 @@ def return_box_approach_rays(gmodel, box):
                 if len(newinfo) > 0:
                     newinfo[sum(rays[collision,3:6]*newinfo[:,3:6],1)>0,3:6] *= -1
                     approachrays = numpy.r_[approachrays,newinfo]
+                newapproachrays = numpy.zeros((0,6))
+                for approachray in approachrays:
+                    local_pos = numpy.dot(numpy.linalg.inv(mat44), numpy.r_[approachray[0:3], numpy.array([1])])[0:3]
+                    if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
+                        newapproachrays = numpy.r_[newapproachrays, [approachray]]
+                approachrays = newapproachrays
             if normalanglerange > 0:
                 theta,pfi = SpaceSamplerExtra().sampleS2(angledelta=directiondelta)
                 dirs = numpy.c_[numpy.cos(theta),numpy.sin(theta)*numpy.cos(pfi),numpy.sin(theta)*numpy.sin(pfi)]
@@ -109,7 +116,9 @@ def return_sphere_approach_rays(gmodel, box):
                 newapproachrays = numpy.zeros((0,6))
                 for approachray in approachrays:
                     R = rotationMatrixFromQuat(quatRotateDirection(array((0,0,1)),approachray[3:6]))
+
                     newapproachrays = numpy.r_[newapproachrays,numpy.c_[numpy.tile(approachray[0:3],(len(dirs),1)),numpy.dot(dirs,transpose(R))]]
+
                 approachrays = newapproachrays
             return approachrays
     finally:
