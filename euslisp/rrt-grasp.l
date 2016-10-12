@@ -6,14 +6,14 @@
 (ros::roseus-add-srvs "std_srvs")
 (ros::roseus-add-srvs "openrave_test")
 (ros::roseus-add-msgs "openrave_test")
+(ros::roseus-add-msgs "jsk_recognition_msgs")
 (load "package://openrave_test/euslisp/utility.l")
-
 
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
    ()
    (not (check-collision :obj *tmp-world*
-                         :link-list (send *robot* arm :links)
+                         ;; :link-list (send *robot* arm :links)
                          ;; :hand? t
                          )
         )
@@ -62,21 +62,52 @@
 (defun move-robot (coords)
   (send *robot* :fix-leg-to-coords (send (send (send *robot* :foot-midcoords) :copy-worldcoords) :transform coords))
   )
+
 (defun show-pose (i)
   (let ((foot-coords (send *robot* :foot-midcoords)))
     (progn (send *robot* :angle-vector (elt *ik-result* i)) (send *robot* :fix-leg-to-coords foot-coords))
+    (send *robot* :hand :rarm :angle-vector (elt *hand-result* i))
     (send *irtviewer* :draw-objects)
     )
   )
 (defun all-ik ()
   (setq *ik-result* nil)
+  (setq *hand-result* nil)
   (let ((foot-coords (send *robot* :foot-midcoords)))
-    (dolist (pose lst)
+    (dotimes (i (length lst))
       ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
+      (setq ik-result (fullbody-ik (elt lst i)))
+      (if ik-result
+          (progn
+            (push ik-result *ik-result*)
+            (push (coerce (mapcar #'rad2deg (coerce (send (elt *finger* i) :data) cons)) float-vector) *hand-result*)
+            )
+        )
       (send *robot* :reset-manip-pose)
       (send *robot* :fix-leg-to-coords foot-coords)
-      (setq ik-result (fullbody-ik pose))
-      (if ik-result (push ik-result *ik-result*))
+      ;; (if ik-result
+      ;;     (return-from :solve-ik nil)
+      ;;   )
+      )
+    )
+  )
+
+(defun all-ik2 ()
+  (setq *ik-result* nil)
+  (setq *hand-result* nil)
+  (let ((foot-coords (send *robot* :foot-midcoords))
+        (angle-vec (send *robot* :angle-vector)))
+    (dotimes (i (length lst))
+      ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
+      (setq ik-result (fullbody-ik2 (elt lst i)))
+      (if ik-result
+          (progn
+            (push ik-result *ik-result*)
+            (push (coerce (mapcar #'rad2deg (coerce (send (elt *finger* i) :data) cons)) float-vector) *hand-result*)
+            )
+        )
+      (send *robot* :angle-vector angle-vec)
+      (send *robot* :fix-leg-to-coords foot-coords)
       ;; (if ik-result
       ;;     (return-from :solve-ik nil)
       ;;   )
@@ -92,12 +123,6 @@
     (setq *tfl* (instance ros::transform-listener :init)))
   (setq *hand-coords-r*  (send (send (send *robot* :hand :rarm) :copy-worldcoords) :transformation (send (send *robot* :rarm :end-coords) :copy-worldcoords)))
   (setq *hand-coords-l*  (send (send (send *robot* :hand :larm) :copy-worldcoords) :transformation (send (send *robot* :larm :end-coords) :copy-worldcoords)))
-  (setq *hand-new-endcoords*
-        (make-cascoords
-         :coords
-         ;; (send (send (send (send *robot* :hand :rarm) :copy-worldcoords) :translate (float-vector 0 40 -160)) :rotate (deg2rad 50) :x)
-         (send (send *robot* :hand :rarm) :copy-worldcoords)
-         :parent (send (send *robot* :rarm :end-coords) :parent)))
   (send *robot* :fix-leg-to-coords (make-coords))
   (send *robot* :hand :rarm :hook-pose)
   )
@@ -112,15 +137,50 @@
     (let ((x (* 0.001 (elt (send trans :worldpos) 0)))
           (y (* 0.001 (elt (send trans :worldpos) 1)))
           (theta (rad2deg (elt (car (send trans :rpy-angle)) 0))))
-      (go-pos x y theta)
+      (go-pos2 x y theta)
       )
     ))
+
+(defun coords->xytheta (trans)
+  (let ((x (* 0.001 (elt (send trans :worldpos) 0)))
+        (y (* 0.001 (elt (send trans :worldpos) 1)))
+        (theta (rad2deg (elt (car (send trans :rpy-angle)) 0))))
+    (list x y theta)
+    )
+  )
+
+(defun xytheta->coords (x y theta)
+  (let ((coords (make-coords :pos (float-vector (* x 1000) (* y 1000) 0))))
+    (send coords :rotate (deg2rad  theta) :z)
+    coords
+    )
+  )
 
 (defun go-pos (x y theta)
   (call-empty "/start_record")
   (send *ri* :go-pos x y theta)
-  (unix::sleep 1)
+  (unix::sleep 2)
   (call-empty "/stop_record")
+  )
+
+(defun go-pos2 (x y theta)
+  (let (coords-beforehoge coords-afterhoge)
+    (setq coords-before
+          (send *tfl* :lookup-transform "/triger_base_map" "ground" (ros::time 0)))
+    (go-pos x y theta)
+    (setq coords-after
+          (send *tfl* :lookup-transform "/triger_base_map" "ground"  (ros::time 0)))
+    (let* ((trans-true (send coords-before :transformation coords-after))
+          (trans-needed (xytheta->coords x y theta))
+          (trans (send trans-true :transformation trans-needed)))
+      (let ((x2 (* 0.001 (elt (send trans :worldpos) 0)))
+            (y2 (* 0.001 (elt (send trans :worldpos) 1)))
+            (theta2 (rad2deg (elt (car (send trans :rpy-angle)) 0))))
+        (ros::ros-info (format nil "go-pos ~a ~a ~a" x2 y2 theta2))
+        (go-pos x2 y2 theta2)
+        )
+      )
+    )
   )
 
 (defun go-pos-coords (coords)
@@ -165,6 +225,11 @@
   )
 
 (defun callback3 (msg)
+  (setq *msg-l* msg)
+  (callback4 msg)
+  )
+
+(defun callback4 (msg)
   (callback-common msg :larm :initialize? nil)
   )
 
@@ -175,10 +240,9 @@
                   arm
                   wgrs
                   :stop 2000
-                  ;; :end-coords *hand-new-endcoords*
                   :end-coords (send *robot* arm :end-coords)
                   ))
-  ;; (setf (send *robot* :rarm :end-coords) *hand-new-endcoords*)
+
   (send *solver* :solve)
   )
 
@@ -212,6 +276,7 @@
                    :transform (ros::tf-pose->coords  obj))))
         (send trs :transform (send (if (equal arm :rarm ) *hand-coords-r* *hand-coords-l*) :copy-worldcoords))
         (send trs :translate (float-vector -50 (if (equal arm :rarm) -50 50) 0)) ;; offset for avoid collision
+        (setq trs (send (send (send *robot* :foot-midcoords) :copy-worldcoords) :transform trs))
         ;; (send trs :rotate (deg2rad -90) :y)
         ;; (send trs :rotate (deg2rad -180) :y)
         (let
@@ -231,8 +296,11 @@
   (dolist (state (send-all (send *ret* :solution-nodes) :state))
     (send *robot* arm :angle-vector state)
     (send *irtviewer* :draw-objects)
+    (if (send *robot* :self-collision-check)
+        (ros::ros-info "self collision!"))
     (read-line))
   )
+
 (defun show-grasp
   ()
   (dotimes (i (length lst)) (send (elt lst i) :draw-on :flush t :color (float-vector 1 0 0)))
@@ -247,7 +315,7 @@
 
 (defun do-motion
   (arm)
-  (open-hand)
+  (open-hand arm)
   (go-pos-exec)
   (reset-manip-pose-with-bend)
   (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
@@ -268,6 +336,8 @@
 
 (defun try-move
   (angle-vector)
+  (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also need to reset index of image_savere index
+  (unix::usleep 1000000)
   (setq *tmp* (send *ri* :state :reference-vector))
   (send *ri* :angle-vector angle-vector 20000)
   (dotimes (i 22) ;; 20 + 2 for avoid miss
@@ -329,10 +399,9 @@
   ()
   (unix::system "cp ~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/")
   (unix::system "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/left*")
-  (cd "/home/leus/ros/indigo/src/openrave_test/moseg") ;; need to change dir
   (unix::system "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/FlowFiles")
-  (unix::system "$(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
-  (unix::system "./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation")
+  (unix::system "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
+  (unix::system "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation")
   )
 
 (defun look-around1 ()

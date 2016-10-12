@@ -1,3 +1,18 @@
+(defun fullbody-ik2
+  (tc-hand)
+  (let (tc)
+    (setq tc
+          (list
+           tc-hand
+           (send *robot* :rarm :end-coords :copy-worldcoords)
+           (send *robot* :rleg :end-coords :copy-worldcoords)
+           (send *robot* :lleg :end-coords :copy-worldcoords)))
+    (with-move-target-link-list
+     (mt ll *robot* (list :larm :rarm :rleg :lleg))
+     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil :translation-axis (list t t t t) :rotation-axis (list t t t t))
+     )
+    )
+  )
 
 (defun fullbody-ik
   (tc-hand)
@@ -13,6 +28,34 @@
      )
     )
   )
+
+(defun sort-angle-vector 
+  ()
+  (let ((appended-list nil)
+        (sorted-list nil)
+        )
+    (setq *robot-angle* (send *ri* :state :potentio-vector))
+    (dotimes (i (length *ik-result*))
+      (push (list (elt *ik-result* i) (elt *hand-result* i)) appended-list)
+      )
+    (ros::ros-info "before sort")
+    (defun sort-func
+      (vec1 vec2)
+      (> (norm (v- (elt vec1 0) *robot-angle*)) (norm (v- (elt vec2 0) *robot-angle*)))
+      )
+    (ros::ros-info "midlle sort")
+    (sort appended-list `sort-func)
+    (ros::ros-info "after sort")
+    (setq sorted-list appended-list)
+    (setq *ik-result* nil)
+    (setq *hand-result* nil)
+    (dotimes (i (length sorted-list))
+      (push (elt (elt sorted-list i) 0) *ik-result*);
+      (push (elt (elt sorted-list i) 1) *hand-result*);
+      )
+    )
+  )
+
 
 (defun fullbody-inverse-kinematics-for-hrp2
   (tc mt ll &key (draw? nil) (translation-axis (list t t t)) (rotation-axis (list t t t)) (stop 30))
