@@ -102,7 +102,7 @@ def initialize_env(left_hand):
     return env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
 
 def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, formatstring):
-    thread_num = 40
+    thread_num = 15
     ps = []
     for i in range(thread_num):
         approachrays_save = approachrays[len_approach/thread_num*i: len_approach/thread_num*(i+1)]

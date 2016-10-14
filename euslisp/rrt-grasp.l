@@ -63,12 +63,15 @@
   (send *robot* :fix-leg-to-coords (send (send (send *robot* :foot-midcoords) :copy-worldcoords) :transform coords))
   )
 
-(defun show-pose (i)
+(defun show-pose (arm i)
   (let ((foot-coords (send *robot* :foot-midcoords)))
     (progn (send *robot* :angle-vector (elt *ik-result* i)) (send *robot* :fix-leg-to-coords foot-coords))
-    (send *robot* :hand :rarm :angle-vector (elt *hand-result* i))
+    (show-hand arm i)
     (send *irtviewer* :draw-objects)
     )
+  )
+(defun show-hand (arm i)
+  (send *robot* :hand arm :angle-vector (elt *hand-result* i))
   )
 (defun all-ik ()
   (setq *ik-result* nil)
@@ -334,6 +337,28 @@
   (close-hand)
   )
 
+(defun try-grasp
+  (arm)
+  (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also
+  (let (
+        (dist-angle (send *robot* :hand arm :angle-vector))
+        (tmp-angle (if (equal arm :rarm)
+                   (subseq (send (send *ri* :hand-state) :reference) 0 6)
+                 (subseq (send (send *ri* :hand-state) :reference) 6 12)
+                 ))
+        (devide-num 10))
+    (dotimes (i devide-num)
+      (send *robot* :hand arm :angle-vector (v+ (scale (/ (+ i 1.0) devide-num) dist-angle) (scale (- 1 (/ (+ i 1.0) devide-num)) tmp-angle)))
+      (ros::ros-info (format nil "~a" (send *robot* :hand :rarm :angle-vector)))
+      (hand-model2real)
+      (unix::usleep 1000000)
+      (call-image-save)
+      )
+    )
+  (call-image-save) ;; hoken
+  (call-moseg :start 0 :stop 10 :direc "fromrobot2")
+  )
+
 (defun try-move
   (angle-vector)
   (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also need to reset index of image_savere index
@@ -369,7 +394,58 @@
   (send *robot* :hand arm :angle-vector (float-vector 90.0 90.0 0.0 0.0 -40.0 -40.0))
   (hand-model2real)
   )
-(defun close-hand
+
+(setq hand-angle-list
+      (list
+       #f(90.0 20.0 0.0 10.0 60.0 60.0) ;; both
+       #f(90.0 -30.0 0.0 10.0 -20.0 -20.0) ;; thumb
+       #f(90.0 90.0 0.0 0.0 110.0 110.0) ;; middle
+       ))
+
+(defun close-hand-more
+  (arm)
+  (let ((min-angle nil)
+        (min-diff 10000)
+        (current (send *robot* :hand arm :angle-vector)))
+    (dolist (h-angle hand-angle-list)
+      (if (< (norm (v- current h-angle)) min-diff)
+          (progn
+            (setq min-angle h-angle)
+            (setq min-diff (norm (v- current h-angle)))
+            )
+          )
+      )
+    (if min-angle
+        (send *robot* :hand arm :angle-vector min-angle)
+      (ros::ros-info "hand angle empty")
+      )
+    )
+                                        ; (hand-model2real)
+  )
+
+(defun close-hand-common
+  (arm index)
+  (send *robot* :hand arm :angle-vector (elt hand-angle-list index))
+  (hand-model2real)
+  )
+
+(defun close-hand0
+  (arm)
+  (close-hand-common arm 0)
+  )
+
+(defun close-hand1
+  (arm)
+  (close-hand-common arm 1)
+  )
+
+(defun close-hand2
+  (arm)
+  (close-hand-common arm 2)
+  )
+
+
+(defun full-close-hand
   (arm)
   (send *robot* :hand arm :r_thumbcm_p :joint-angle -30)
   (hand-model2real)
@@ -382,9 +458,11 @@
   )
 
 
+
 (defun hand-model2real (&key (time 500) (wait? t))
   (send *ri* :hand-angle-vector (apply #'concatenate float-vector (send *robot* :hand :arms :angle-vector)) time)
-  (when wait? (send *ri* :hand-wait-interpolation)))
+  (when wait? (send *ri* :hand-wait-interpolation))
+  )
 
 (defun bend-legs ()
   (reset-manip-pose-with-bend :offset 150)
@@ -396,13 +474,14 @@
   )
 
 (defun call-moseg
-  ()
-  (unix::system "cp ~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/")
-  (unix::system "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/left*")
-  (unix::system "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/fromrobot/FlowFiles")
-  (unix::system "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg fromrobot 0 20 4 20")
-  (unix::system "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg fromrobot/image.ppm OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation")
+  (&key (start 0) (stop 20) (direc "fromrobot"))
+  (unix::system (format nil "cp ~~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/" direc))
+  (unix::system (format nil "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/left*" direc))
+  (unix::system (format nil "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/FlowFiles" direc))
+  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg ~a ~a ~a 4 20" direc start stop))
+  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg ~a/image.ppm OchsBroxMalik4_all_0000020.00/~a/Tracks~a.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation" direc direc stop))
   )
+
 
 (defun look-around1 ()
   (progn (bend-legs) (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
