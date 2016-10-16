@@ -365,6 +365,9 @@ def shut_down_hook():
     print "shutting down node"
 
 def marker_callback(msg):
+    callback(get_box(msg))
+
+def get_box(msg):
     box = BoundingBox()
     get_box_pose_srv = rospy.ServiceProxy("/transformable_server_sample/get_pose", GetTransformableMarkerPose)
     resp = get_box_pose_srv(target_name=msg.data)
@@ -375,7 +378,11 @@ def marker_callback(msg):
     box.dimensions.x = resp2.dimensions.x
     box.dimensions.y = resp2.dimensions.y
     box.dimensions.z = resp2.dimensions.z
-    callback(box)
+    return box
+
+def marker_callback_clip(msg):
+    box = get_box(msg)
+    clip_box_pub.publish(box)
 
 def grasp_finder():
     rospy.init_node('grasp_finder', anonymous=True)
@@ -383,8 +390,11 @@ def grasp_finder():
     pose_array_pub = rospy.Publisher('~grasp_caluculation_result', geometry_msgs.msg.PoseArray, latch=True)
     com_array_pub = rospy.Publisher('~grasp_caluculation_com_result', geometry_msgs.msg.PoseArray, latch=True)
     grasp_array_pub = rospy.Publisher('~rave_grasp_result', RaveGraspArray, latch=True)
+    clip_box_pub = rospy.Publisher('~attension_clip', BoundingBox, latch=False)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
+    rospy.Subscriber("/attension_clip_request", String, marker_callback_clip)
+
 
 def matrix2pose(matrix):
     quat = quatFromRotationMatrix(matrix[0:3, 0:3])
