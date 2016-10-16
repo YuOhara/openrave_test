@@ -67,6 +67,7 @@
   (let ((foot-coords (send *robot* :foot-midcoords)))
     (progn (send *robot* :angle-vector (elt *ik-result* i)) (send *robot* :fix-leg-to-coords foot-coords))
     (show-hand arm i)
+    (send *robot* :look-at-target (send *robot* arm :end-coords))
     (send *irtviewer* :draw-objects)
     )
   )
@@ -479,7 +480,7 @@
   (unix::system (format nil "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/left*" direc))
   (unix::system (format nil "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/FlowFiles" direc))
   (unix::system (format nil "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg ~a ~a ~a 4 20" direc start stop))
-  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg ~a/image.ppm OchsBroxMalik4_all_0000020.00/~a/Tracks~a.dat -1 OchsBroxMalik4_all_0000020.00/fromrobot/DenseSegmentation" direc direc stop))
+  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg ~a/image.ppm OchsBroxMalik4_all_0000020.00/~a/Tracks~a.dat -1 OchsBroxMalik4_all_0000020.00/~a/DenseSegmentation" direc direc stop direc))
   )
 
 

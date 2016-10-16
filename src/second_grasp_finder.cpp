@@ -48,7 +48,7 @@ ros::Publisher *second_grasp_array_debug_pub_;
 ros::Publisher *second_rave_grasp_array_pub_;
 cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
 
-void readTracks(std::vector<CSimpleTrack> &mTracks) {
+void readTracks(std::vector<CSimpleTrack> &mTracks, std::string file_name=std::string("/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat")) {
   // open a file
 
   rospack::Rospack rp;
@@ -60,7 +60,7 @@ void readTracks(std::vector<CSimpleTrack> &mTracks) {
     ROS_ERROR("openrave_test not found!");
     return;
   }
-  std::ifstream aFile((path + std::string("/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat")).c_str());
+  std::ifstream aFile((path + file_name).c_str());
   // Read number of frames considered
   int mSequenceLength;
   aFile >> mSequenceLength;
@@ -98,13 +98,37 @@ Eigen::Affine3d getTransform(std::string from, std::string to) {
   return transform;
 }
 
+CPoint getBefore(CPoint after_point, std::vector<CSimpleTrack> &mTracksGrasp) {
+  if (mTracksGrasp.size() == 0)
+    {
+      return after_point;
+    }
+  double x = after_point.x; double y = after_point.y;
+  double min = 10000000;
+  int index = -1;
+  for (int j = 0; j < mTracksGrasp.size(); j++) {
+    double dist = pow((x - mTracksGrasp[j].mPoints.back().x), 2.0) + pow((y - mTracksGrasp[j].mPoints.back().y), 2.0);
+    if (min > dist){
+      min = dist;
+      index = j;
+    }
+  }
+  if (index == -1) {ROS_INFO("hoge"); return after_point; }
 
-int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
+  CPoint return_point;
+  return_point.x = mTracksGrasp[index].mPoints.front().x;
+  return_point.y = mTracksGrasp[index].mPoints.front().y;
+  return return_point;
+}
+
+int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp)
 {
   double min = 10000;
   int label = -1;
   for (int j = 0; j < mTracks.size(); j++) {
-    double dist = pow((x - mTracks[j].mPoints.front().x), 2.0) + pow((y - mTracks[j].mPoints.front().y), 2.0);
+    CPoint after_point = mTracks[j].mPoints.front();
+    CPoint before_point = getBefore(after_point, mTracksGrasp);
+    double dist = pow((x - before_point.x), 2.0) + pow((y - before_point.y), 2.0);
     if (min > dist){
       label = mTracks[j].mLabel;
       min = dist;
@@ -118,12 +142,11 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks)
   return label;
 }
 
-int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks)
+int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp)
 {
     cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
     cv::Point2d uv = model_.project3dToPixel(p);
-    ROS_INFO("%f, %f, %f -> %f, %f", p.x, p.y, p.z, uv.x, uv.y);
-    return getLabel(uv.x, uv.y, mTracks);
+    return getLabel(uv.x, uv.y, mTracks, mTracksGrasp);
 }
 
 void graspPoseCallback(const openrave_test::RaveGraspArrayConstPtr& rave_grasp, const geometry_msgs::PoseArrayConstPtr& com)
@@ -164,7 +187,9 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     return false;
   }
   std::vector<CSimpleTrack> mTracks;
+  std::vector<CSimpleTrack> mTracksGrasp;
   readTracks(mTracks);
+  readTracks(mTracksGrasp, std::string("/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot2/Tracks10.dat"));
   // debug_img = cv::Mat::zeros(cam_info_->height, cam_info_->width, CV_8UC3);
   {
     std::stringstream ss;
@@ -179,18 +204,27 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     ROS_INFO("failed to create camera model");
     return false;
   }
-  int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks);
+  std::vector<CSimpleTrack> nullTracks;
+  int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks, nullTracks);
   ROS_INFO("label! %d", hand_label);
   int back_label = 0; // may be 0
   geometry_msgs::PoseArray second_grasp_pose_array;
   geometry_msgs::PoseArray second_grasp_pose_array_debug;
   // get transform
   std::vector<std_msgs::Float32MultiArray> finger_angle_array_out;
+  omp_lock_t writelock;
+  omp_init_lock(&writelock);
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
   for (int i = 0; i < com_array_odom.size(); i++) {
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
-    int label = getLabel(grasp_cam, mTracks);
+    int label = getLabel(grasp_cam, mTracks, mTracksGrasp);
     ROS_INFO("label%d:, %d", i, label);
+    omp_set_lock(&writelock);
+    // one thread at a time stuff
     if (label != hand_label && label != back_label && label != -1) {
       // push back grasp pose
       ROS_INFO("succeeded");
@@ -206,7 +240,10 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
       tf::poseEigenToMsg(debug_grasp, grasp_pose);
       second_grasp_pose_array_debug.poses.push_back(grasp_pose);
     }
+    omp_unset_lock(&writelock);
+    // some stuff
   }
+  omp_destroy_lock(&writelock);
   second_grasp_pose_array.header.frame_id = "/triger_base_map";
   second_grasp_pose_array.header.stamp = ros::Time::now();
   second_grasp_pose_array_debug.header = second_grasp_pose_array.header;
