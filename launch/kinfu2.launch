@@ -20,7 +20,7 @@
   <!--   <arg name="LASER_FLAME_ID" default="/camera_depth_optical_frame" /> -->
   <!-- </include> -->
   <include file="$(find jsk_pcl_ros)/launch/organized_multi_plane_segmentation.launch">
-    <arg name="INPUT" value="/kinfu/output" />
+    <arg name="INPUT" value="/camera_remote/depth_registered/points" />
   </include>
   <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="true">
     <param name="~left_hand" value="false" />
