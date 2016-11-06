@@ -228,7 +228,7 @@
   ;; (send *robot* :hand arm :angle-vector (v+ (return-finger-param arm) (float-vector 0 -10 10 0 10 10)))
   (if (equal arm :rarm) (all-ik) 
     (progn
-      (send *robot* :angle-vector *tmp*)
+      ;; (send *robot* :angle-vector *tmp*)
       (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 100 0 0)))
       (all-ik2)
       )
@@ -377,12 +377,12 @@
                   (try-move (send *robot* :angle-vector))
                 (return)
                 )
-              (if (y-or-n-p "move back?")
-                  (progn
-                    (send *ri* :angle-vector *tmp* 10000)
-                    (send *ri* :wait-interpolation))
-                (return)
-                )
+              ;; (if (y-or-n-p "move back?")
+              ;;     (progn
+              ;;       (send *ri* :angle-vector *tmp* 10000)
+              ;;       (send *ri* :wait-interpolation))
+              ;;   (return)
+              ;;   )
               )
           (progn
             (ros::ros-info "ik failed, please implement fullbody-ik(todo)")
