@@ -105,11 +105,11 @@
   (setq *ik-result* nil)
   (setq *hand-result* nil)
   (let ((foot-coords (send *robot* :foot-midcoords))
-        (angle-vec (send *robot* :angle-vector)))
+        (angle-vec *tmp*))
     (dotimes (i (length lst))
       ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
       (setq ik-result (fullbody-ik2 (elt lst i)))
-      (if (and ik-result (send *robot* :larm :move-end-pos (float-vector 50 -50 0)) (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world))
+      (if (and ik-result (send *robot* :larm :move-end-pos (float-vector 50 -50 0)) (send *robot* :arms :move-end-pos (float-vector 0 0 70) :world))
           (progn
             (push ik-result *ik-result*)
             (push (coerce (mapcar #'rad2deg (coerce (send (elt *finger* i) :data) cons)) float-vector) *hand-result*)
@@ -365,7 +365,7 @@
         )
     (return)
     )
-  (close-hand-more arm)
+  ; (close-hand-more arm)
   (if (equal arm :rarm)
       (progn
         (try-grasp arm)
@@ -415,19 +415,27 @@
       )
     )
   (call-image-save) ;; hoken
-  (call-moseg :start 0 :stop 10 :direc "fromrobot2")
+  ;; (call-moseg :start 0 :stop 10 :direc "fromrobot2")
   )
 
 (defun try-move
   (angle-vector)
   (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also need to reset index of image_savere index
+  (call-empty "save_before")
   (unix::usleep 1000000)
   (setq *tmp* (send *ri* :state :reference-vector))
   (send *ri* :angle-vector angle-vector 20000)
-  (dotimes (i 22) ;; 20 + 2 for avoid miss
-    (unix::usleep 1000000)
+  (dotimes (i 10) ;; 20 + 2 for avoid miss
+    (unix::usleep 2000000)
     (call-image-save)
     )
+  (send *ri* :wait-interpolation)
+  (send *ri* :angle-vector *tmp* 20000)
+  (dotimes (i 12) ;; 20 + 2 for avoid miss
+    (unix::usleep 2000000)
+    (call-image-save)
+    )
+  (call-empty "save_after")
   ;; save bmf file
   (save-bmf-file)
   ;; call moseg
@@ -505,14 +513,14 @@
       (do-motion2 :larm)
     (return)
     )
-  (if (y-or-n-p "move up?")
-      (if (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world)
-          (progn
-            (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
-            (send *ri* :wait-interpolation)
-            )
+  ;;(if (y-or-n-p "move up?")
+  (if (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world)
+      (progn
+        (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+        (send *ri* :wait-interpolation)
         )
     )
+  ;; )
   (ros::ros-info "done all demo!")
   )
 
