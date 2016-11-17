@@ -8,6 +8,7 @@
 (ros::roseus-add-msgs "openrave_test")
 (ros::roseus-add-msgs "jsk_recognition_msgs")
 (load "package://openrave_test/euslisp/utility.l")
+(load "package://openrave_test/euslisp/eusjsk-recognition.l")
 
 (defmethod rrt-jt-multigoal
   (:collision-free ;; need to implement this
@@ -196,8 +197,8 @@
   (setq coords2 (send (send coords :copy-worldcoords) :translate (float-vector 0 40 -160)))
   (send *robot* :fix-leg-to-coords (send (make-coords :pos (float-vector (- (elt (send coords2 :pos) 0) 450) 0 0)) :rotate (deg2rad 0) :z))
   )
-(defun fullbody-move-end-pos (arm x y z &key (world nil))
-  (fullbody-ik (send (send (send *robot* arm :end-coords) :copy-worldcoords) :translate (float-vector x y z) (if world :world :local)))
+(defun fullbody-move-end-pos (arm x y z &optional (world nil))
+  (fullbody-ik (send (send (send *robot* arm :end-coords) :copy-worldcoords) :translate (float-vector x y z) (if (equal world :world) :world :local)))
   )
 (defun get-trans (msg)
   (send *tfl* :lookup-transform
@@ -370,7 +371,7 @@
       (progn
         (try-grasp arm)
         (if
-            (fullbody-move-end-pos :rarm 0 0 70 :world t)
+            (fullbody-move-end-pos :rarm 0 0 70 :world)
             ;(send *robot* arm :move-end-pos (float-vector 0 0 70) :world)
             (progn
               (if (y-or-n-p "try move?")
@@ -586,6 +587,23 @@
 
 (defun look-around1 ()
   (progn (bend-legs) (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
+  )
+
+(defun pull-box (box)
+  (send *robot* :reset-manip-pose)
+  (send *robot* :fix-leg-to-coords (make-coords))
+  (setq *cube* (ros::bounding-box->cube box "ground"))
+  (objects (list *robot* *cube*))
+  (fullbody-ik (send (make-coords :pos (send *cube* :world-pos)) :translate (float-vector 0 0 0)))
+  (let (size 
+	dir
+	(max-size 0)
+	(dim (cdr (car (send *cube* :csg)))))
+    (if (> (elt dim 0) (elt dim 1))
+	(progn)
+      (progn)
+      )
+    )
   )
 
 (ros::roseus "sample-grasp-node")
