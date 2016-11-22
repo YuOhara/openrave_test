@@ -1,0 +1,16 @@
+<launch>
+  <node pkg="nodelet" type="nodelet" name="icp_registration"
+        args="standalone jsk_pcl/ICPRegistration"
+        output="screen">
+    <param name="align_box" value="false" />
+    <remap from="~input" to="/cloud_pcd" />
+    <remap from="~input_reference_array" to="pointcloud_server/output" />
+  </node>
+  <node pkg="nodelet" type="nodelet" name="pointcloud_server"
+        args="standalone jsk_pcl/PointcloudDatabaseServer"
+        output="screen">
+    <rosparam subst_value="true">
+      models: ["$(find openrave_test)/data/table.pcd"]
+    </rosparam>
+  </node>
+</launch>
