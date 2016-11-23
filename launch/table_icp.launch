@@ -3,6 +3,7 @@
         args="standalone jsk_pcl/ICPRegistration"
         output="screen">
     <param name="align_box" value="false" />
+    <param name="use_flipped_initial_pose" value="false" />
     <remap from="~input" to="/cloud_pcd" />
     <remap from="~input_reference_array" to="pointcloud_server/output" />
   </node>
@@ -13,4 +14,13 @@
       models: ["$(find openrave_test)/data/table.pcd"]
     </rosparam>
   </node>
+  <node pkg="jsk_topic_tools" type="relay" name="relay1" >
+    <remap from="~input" to="/icp_registration/output"/>
+    <remap from="~output" to="/octree/input" />
+  </node>
+  <node pkg="jsk_topic_tools" type="relay" name="relay2" >
+    <remap from="~input" to="/cloud_pcd" />
+    <remap from="~output" to="/octree/input" />
+  </node>
+  <node pkg="jsk_pcl_ros" name="octree" type="octree_change_publisher" />
 </launch>
