@@ -21,9 +21,12 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <openrave_test/RaveGraspArray.h>
 #include <rospack/rospack.h>
-/**
- * This tutorial demonstrates simple receipt of messages over the ROS system.
- */
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <boost/foreach.hpp>
+#include "std_srvs/Empty.h"
+
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 class CPoint {
 public:
@@ -48,6 +51,12 @@ ros::Publisher *second_grasp_array_pub_;
 ros::Publisher *second_grasp_array_debug_pub_;
 ros::Publisher *second_rave_grasp_array_pub_;
 cv::Mat debug_img = cv::Mat::zeros(500, 500, CV_8UC3);
+PointCloud::Ptr cloud_before;
+PointCloud::Ptr cloud_after;
+PointCloud::Ptr cloud_tmp;
+ros::Subscriber sub_cloud;
+boost::shared_ptr<ros::NodeHandle> n;
+
 cv::Scalar colors[8] =
   {cv::Scalar(0, 0, 0),
    cv::Scalar(0, 255, 0),
@@ -60,7 +69,6 @@ cv::Scalar colors[8] =
   };
 void readTracks(std::vector<CSimpleTrack> &mTracks, std::string file_name=std::string("/moseg/TrainingSet/Results/OchsBroxMalik4_all_0000020.00/fromrobot/Tracks20.dat")) {
   // open a file
-
   rospack::Rospack rp;
   std::vector<std::string> search_path;
   rp.getSearchPathFromEnv(search_path);
@@ -136,7 +144,7 @@ CPoint getBefore(CPoint after_point, std::vector<CSimpleTrack> &mTracksGrasp) {
   return return_point;
 }
 
-int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp, Eigen::Affine3d &output)
+int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp, Eigen::Affine3d &output, cv::Point2d &before, cv::Point2d &after)
 {
   int label = -1;
   int store_size = 8;
@@ -190,6 +198,7 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks, std::vector
     ROS_INFO("%f %f -> %f %f", before_points[i].x, before_points[i].y, after_points[i].x, after_points[i].y);
     cv::line(debug_img, before_points[i], after_points[i], colors[i%8]);
   }
+  before = before_points[0]; after = after_points[0];
   // cv::Mat(before_points);
   cv::Mat before_points_mat (cv::Size(store_size, 1), CV_32FC2, before_points);
   cv::Mat after_points_mat (cv::Size(store_size, 1), CV_32FC2, after_points);
@@ -229,11 +238,11 @@ int getLabel(double x, double y, std::vector<CSimpleTrack> &mTracks, std::vector
   return label;
 }
 
-int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp, Eigen::Affine3d &output)
+int getLabel(Eigen::Vector3d grasp_cam, std::vector<CSimpleTrack> &mTracks, std::vector<CSimpleTrack> &mTracksGrasp, Eigen::Affine3d &output, cv::Point2d &before, cv::Point2d &after)
 {
     cv::Point3d p(grasp_cam.x(), grasp_cam.y(), grasp_cam.z());
     cv::Point2d uv = model_.project3dToPixel(p);
-    return getLabel(uv.x, uv.y, mTracks, mTracksGrasp, output);
+    return getLabel(uv.x, uv.y, mTracks, mTracksGrasp, output, before, after);
 }
 
 void graspPoseCallback(const openrave_test::RaveGraspArrayConstPtr& rave_grasp, const geometry_msgs::PoseArrayConstPtr& com)
@@ -279,6 +288,9 @@ Eigen::Affine3d transFromAffine(cv::Mat H)
 {
 }
 
+bool getTranslationWithPoint(cv::Point2d point, PointCloud::Ptr cloud,
+                             float &resx, float &resy, float &resz);
+
 
 bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
                       openrave_test::SecondGrasp::Response &res)
@@ -303,7 +315,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
 
   std::vector<CSimpleTrack> nullTracks;
   Eigen::Affine3d hand_trans; // not needed
-  int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks, nullTracks, hand_trans);
+  cv::Point2d hand_before, hand_after;
+  int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks, nullTracks, hand_trans, hand_before, hand_after);
   ROS_INFO("label! %d", hand_label);
   int back_label = 0; // may be 0
   geometry_msgs::PoseArray second_grasp_pose_array;
@@ -320,7 +333,8 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
     Eigen::Vector3d grasp_cam;
     grasp_cam = transform * com_array_odom[i];
     Eigen::Affine3d output;
-    int label = getLabel(grasp_cam, mTracks, mTracksGrasp, output);
+    cv::Point2d before_point, after_point;
+    int label = getLabel(grasp_cam, mTracks, mTracksGrasp, output, before_point, after_point);
     ROS_INFO("label%d:, %d", i, label);
     omp_set_lock(&writelock);
     // one thread at a time stuff
@@ -328,10 +342,29 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
       ROS_INFO("succeeded");
       // push back grasp pose
       // H to Eigen
-      Eigen::Affine3d offset = Eigen::Affine3d(Eigen::AngleAxisd(
-                                                                 M_PI
-                                                                 , Eigen::Vector3d(1, 0, 0)));
-      Eigen::Affine3d local_trans = (offset * output);
+      // Eigen::Affine3d offset = Eigen::Affine3d(Eigen::AngleAxisd(
+      //                                                            M_PI
+      //                                                            , Eigen::Vector3d(1, 0, 0)));
+      // Eigen::Affine3d local_trans = (offset * output);
+
+      Eigen::Affine3d local_trans = Eigen::Affine3d::Identity();
+      if (cloud_before && cloud_after) {
+        float resx, resy, resz;
+        bool success_flug = true;
+        if (!getTranslationWithPoint(before_point, cloud_before, resx, resy, resz)){
+          success_flug = false;
+        }
+        float resx_a, resy_a, resz_a;
+        if (!getTranslationWithPoint(after_point, cloud_after, resx_a, resy_a, resz_a)){
+          success_flug = false;
+        }
+        if (success_flug){
+          local_trans = Eigen::Translation3d(resx_a - resx, resy_a - resy, resz_a - resz) * local_trans;
+        }
+        else {
+          ROS_INFO("cannot get point data");
+        }
+      }
       ROS_INFO("fuga %f %f %f", local_trans.translation().x(), local_trans.translation().y(), local_trans.translation().z());
       geometry_msgs::Pose grasp_pose;
       tf::poseEigenToMsg(transform.inverse()  * local_trans * (transform * grasp_array_odom[i])
@@ -374,23 +407,105 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   return true;
 }
 
+bool checkpoint (PointCloud &in_pts, int x, int y,
+                 float &resx, float &resy, float &resz)  {
+  if ((x < 0) || (y < 0) || (x >= in_pts.width) || (y >= in_pts.height)) {
+    ROS_WARN("Requested point is out of image size.  point: (%d, %d)  size: (%d, %d)", x, y, in_pts.width, in_pts.height);
+    return false;
+  }
+  pcl::PointXYZ p = in_pts.points[in_pts.width * y + x];
+  // search near points
+  ROS_INFO("Request: screenpoint (%d, %d) => (%f, %f, %f)", x, y, p.x, p.y, p.z);
+  //return !(isnan (p.x) || ( (p.x == 0.0) && (p.y == 0.0) && (p.z == 0.0)));
+  if ( !isnan (p.x) && ((p.x != 0.0) || (p.y != 0.0) || (p.z == 0.0)) ) {
+    resx = p.x; resy = p.y; resz = p.z;
+    ROS_INFO("return true!");
+    return true;
+  }
+  return false;
+}
+
+bool getTranslationWithPoint(cv::Point2d point, PointCloud::Ptr cloud,
+                             float &resx, float &resy, float &resz) 
+{
+  int reqx = point.x/2; int reqy = point.y/2;
+  int x = reqx < 0.0 ? ceil(reqx - 0.5) : floor(reqx + 0.5);
+  int y = reqy < 0.0 ? ceil(reqy - 0.5) : floor(reqy + 0.5);
+  ROS_INFO("Request : %d %d", x, y);
+  if (checkpoint (*cloud, x, y, resx, resy, resz)) {
+    return true;
+  } else {
+    for (int n = 1; n < 10; n++) {
+      for (int y2 = 0; y2 <= n; y2++) {
+        int x2 = n - y2;
+        if (checkpoint (*cloud, x + x2, y + y2, resx, resy, resz)) {
+          return true;
+        }
+        if (x2 != 0 && y2 != 0) {
+          if (checkpoint (*cloud, x - x2, y - y2, resx, resy, resz)) {
+            return true;
+          }
+        }
+        if (x2 != 0) {
+          if (checkpoint (*cloud, x - x2, y + y2, resx, resy, resz)) {
+            return true;
+          }
+        }
+        if (y2 != 0) {
+          if (checkpoint (*cloud, x + x2, y - y2, resx, resy, resz)) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+
+}
+
+void cloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
+{
+  pcl::fromROSMsg(*msg, *cloud_tmp);
+  ROS_INFO("succeeded cloud sub");
+  sub_cloud.shutdown();
+}
+
+bool saveBefore(std_srvs::Empty::Request  &req,
+                std_srvs::Empty::Response &res)
+{
+  cloud_tmp = boost::make_shared<PointCloud>();
+  cloud_before = cloud_tmp;
+  sub_cloud = n->subscribe("cloud", 1000, cloudCallback);
+}
+
+bool saveAfter(std_srvs::Empty::Request  &req,
+                std_srvs::Empty::Response &res)
+{
+  cloud_tmp = boost::make_shared<PointCloud>();
+  cloud_after = cloud_tmp;
+  sub_cloud = n->subscribe("cloud", 1000, cloudCallback);
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "second_grasp_finder");
-  ros::NodeHandle n;
-  second_grasp_array_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000));
-  second_grasp_array_debug_pub_ = new ros::Publisher(n.advertise<geometry_msgs::PoseArray>("second_grasp_array_false", 1000));
-  second_rave_grasp_array_pub_ = new ros::Publisher(n.advertise<openrave_test::RaveGraspArray>("second_rave_grasp_array", 1000));
+  n = boost::make_shared<ros::NodeHandle> ();
+  second_grasp_array_pub_ = new ros::Publisher(n->advertise<geometry_msgs::PoseArray>("second_grasp_array", 1000));
+  second_grasp_array_debug_pub_ = new ros::Publisher(n->advertise<geometry_msgs::PoseArray>("second_grasp_array_false", 1000));
+  second_rave_grasp_array_pub_ = new ros::Publisher(n->advertise<openrave_test::RaveGraspArray>("second_rave_grasp_array", 1000));
   tf_listener_ = new tf::TransformListener();
-  message_filters::Subscriber<openrave_test::RaveGraspArray> grasp_sub(n, "/grasp_finder_left/rave_grasp_result", 1);
-  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(n, "/grasp_finder_left/grasp_caluculation_com_result", 1);
+  message_filters::Subscriber<openrave_test::RaveGraspArray> grasp_sub(*n, "/grasp_finder_left/rave_grasp_result", 1);
+  message_filters::Subscriber<geometry_msgs::PoseArray> com_sub(*n, "/grasp_finder_left/grasp_caluculation_com_result", 1);
   typedef message_filters::sync_policies::ExactTime<openrave_test::RaveGraspArray, geometry_msgs::PoseArray> MySyncPolicy;
   // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
   message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), grasp_sub, com_sub);
   sync.registerCallback(boost::bind(&graspPoseCallback, _1, _2));
-  ros::Subscriber sub = n.subscribe("camera_info", 1000, cameraInfoCallback);
-  ros::ServiceServer service = n.advertiseService("second_grasp", loadMovementFile);
+  ros::ServiceServer service_before = n->advertiseService("save_before", saveBefore);
+  ros::ServiceServer service_after = n->advertiseService("save_after", saveAfter);
+  ros::ServiceServer service = n->advertiseService("second_grasp", loadMovementFile);
+  ros::Subscriber sub = n->subscribe("camera_info", 1000, cameraInfoCallback);
   grasp_array_odom.clear();
   com_array_odom.clear();
-  ros::spin();
+  while(ros::ok()) ros::spinOnce();
+  // ros::spin();
 }

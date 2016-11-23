@@ -589,20 +589,53 @@
   (progn (bend-legs) (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
   )
 
-(defun pull-box (box)
-  (send *robot* :reset-manip-pose)
-  (send *robot* :fix-leg-to-coords (make-coords))
-  (setq *cube* (ros::bounding-box->cube box "ground"))
+(defun save-box (box-msg)
+  (setq *cube* (ros::bounding-box->cube box-msg "ground"))
   (objects (list *robot* *cube*))
-  (fullbody-ik (send (make-coords :pos (send *cube* :world-pos)) :translate (float-vector 0 0 0)))
-  (let (size 
-	dir
-	(max-size 0)
-	(dim (cdr (car (send *cube* :csg)))))
+  )
+
+(defun pull-box ()
+  (let (size
+	;; direc
+	(dim (cdr (car (send *cube* :csg))))
+                                        ;dx dy dz
+        )
+    (send *robot* :reset-manip-pose)
+    (send *robot* :fix-leg-to-coords (make-coords))
+    (fullbody-ik (send (make-coords :pos (send (send *cube* :copy-worldcoords) :worldpos)) :translate (float-vector 0 40 150) :world))
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
+    (fullbody-ik (send (make-coords :pos (send (send *cube* :copy-worldcoords) :worldpos)) :translate (float-vector 0 40 (+ (/ (elt dim 2) 2) 20)) :world))
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
     (if (> (elt dim 0) (elt dim 1))
-	(progn)
-      (progn)
+	(progn
+          (setq size (elt dim 0))
+          (setq direc (send *cube* :x-axis))
+          )
+      (progn
+        (setq size (elt dim 1))
+        (setq direc (send *cube* :y-axis))
+        )
       )
+    (setq tmp-pos (send (send *cube* :copy-worldcoords) :worldpos))
+    (setf (elt tmp-pos 2) 0)
+    (if (> (v. direc tmp-pos) 0)
+        (setq direc (scale -1 direc))
+      )
+    (setq direc (scale (/ size 2) direc))
+    (setq dx (elt direc 0))
+    (setq dy (elt direc 1))
+    (setq dz (elt direc 2))
+    (fullbody-move-end-pos :rarm dx dy dz :world)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
+    (fullbody-move-end-pos :rarm 0 0 100 :world)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
+    (reset-manip-pose-with-bend :offset 0)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
     )
   )
 
@@ -610,4 +643,6 @@
 (init-robot)
 (ros::subscribe "/grasp_finder_right/rave_grasp_result" openrave_test::RaveGraspArray #'callback)
 (ros::subscribe "/second_rave_grasp_array" openrave_test::RaveGraspArray #'callback3)
+(ros::subscribe "/bounding_box_marker/selected_box" jsk_recognition_msgs::BoundingBox #'save-box)
+
 

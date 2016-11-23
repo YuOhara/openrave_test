@@ -25,15 +25,17 @@
   <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="true">
     <param name="~left_hand" value="false" />
   </node>
-  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true">
-    <param name="~left_hand" value="true" />
-  </node>
+  <!-- <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true"> -->
+  <!--   <param name="~left_hand" value="true" /> -->
+  <!-- </node> -->
   <node pkg="image_view" type="image_saver" name="save_image_for_moseg" respawn="true" output="screen">
     <remap from="image" to="/camera_remote/rgb/image_rect_color"/>
+    <!-- <param name="~encoding" value="rgb" /> -->
     <param name="~save_all_image" value="false" />
   </node>
   <node pkg="openrave_test" type="second_grasp_finder" name="second_grasp_finder" output="screen" >
     <remap from="camera_info" to="/camera/rgb/camera_info" />
+    <remap from="cloud" to="$(arg POINTS)" />
   </node>
   <node pkg="openrave_test" type="triger_base_map.py" name="triger_base_map" output="screen">
   </node>

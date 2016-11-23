@@ -1,5 +1,9 @@
 <launch>
-  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen">
+  <node pkg="nodelet" type="nodelet" name="kinfu_manager"
+        args="manager"
+        output="screen"/>
+  <node pkg="nodelet" type="nodelet" name="kinfu" output="screen"
+        args="load jsk_pcl/Kinfu kinfu_manager">
     <remap from="~input/depth" to="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" />
     <remap from="~input/color" to="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" />
     <remap from="~input/info" to="/camera_remote/depth/camera_info" />
@@ -9,6 +13,16 @@
       icp_dist_rot: 20
       camera_movement_thre: 0.001
       child_frame_id: /camera_depth_optical_frame
+    </rosparam>
+  </node>
+  <node pkg="nodelet" type="nodelet"
+        args="load pcl/VoxelGrid kinfu_manager"
+        name="voxel_grid">
+    <remap from="~input" to="kinfu/output/unknown"/>
+    <rosparam>
+      leaf_size: 0.1
+      filter_limit_min: -10.0
+      filter_limit_max: 10.0
     </rosparam>
   </node>
 </launch>
