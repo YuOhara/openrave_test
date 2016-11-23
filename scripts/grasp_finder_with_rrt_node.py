@@ -31,6 +31,7 @@ OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
 linelist = None
 linelist_temp = None
 contactlist = None
+only_read = False
 
 def callback(box):
     print "callback start!"
@@ -107,24 +108,25 @@ def initialize_env(left_hand):
     return env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
 
 def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, formatstring):
-    thread_num = 20
+    thread_num = 40
     ps = []
+    if not only_read:
+        for i in range(thread_num):
+            approachrays_save = approachrays[(len_approach/thread_num)*i: (len_approach/thread_num)*(i+1)]
+            f2 = open('%s/.ros/grasps/grasp_%s%d.txt' % (HOME_PATH, formatstring, i) , 'w')
+            pickle.dump(approachrays_save, f2)
+            f2.close()
+            p = Process(target=load_and_save_trial_single, args=(i, formatstring))
+            p.start()
+            ps.append(p)
+            print i
+        for i in range(thread_num):
+            ps[i].join()
     for i in range(thread_num):
-        approachrays_save = approachrays[(len_approach/thread_num)*i: (len_approach/thread_num)*(i+1)]
-        f2 = open('%s/.ros/grasps/grasp_%s%d.txt' % (HOME_PATH, formatstring, i) , 'w')
-        pickle.dump(approachrays_save, f2)
-        f2.close()
-        p = Process(target=load_and_save_trial_single, args=(i, formatstring))
-        p.start()
-        ps.append(p)
-        print i
-    for i in range(thread_num):
-        ps[i].join()
         f = open('%s/.ros/grasps/result_%s%d.txt' % (HOME_PATH, formatstring, i))
         success_grasp_list_load = pickle.load(f)
         success_grasp_list.extend(success_grasp_list_load)
         f.close()
-
 
 def load_and_save_trial_single(index, formatstring):
     check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
@@ -153,6 +155,8 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     standoffs = [0# , 0.025
     ]
     standoffs_size = len(standoffs)
+    offset_rolls = [0, numpy.pi / 2.0]
+    offset_rolls_size = len(rolls)
     for approachray in approachrays:
         for standoff in standoffs:
             pose_msg = Pose()
@@ -163,13 +167,14 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                 mindist = mindist2 = 1.0
             else:
                 for roll in rolls:
+                  for offset_roll in offset_rolls:
                     mindist = mindist2 = -0.1
                     robot.SetActiveManipulator(manip)
                     robot.SetTransform(numpy.eye(4))
                     robot.SetDOFValues(preshape, manip.GetGripperIndices())
                     robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
                     try_num = try_num + 1 # temp
-                    sys.stdout.write("\rtry %d/%d " % (try_num, len_approach*rolls_size*standoffs_size))
+                    sys.stdout.write("\rtry %d/%d " % (try_num, len_approach*rolls_size*standoffs_size*offset_rolls_size))
                     sys.stdout.flush()
                     # grasper.robot.SetTransform(poseFromGraspParams(-approachray[3:6], roll, approachray[0:3], manipulatordirection))
                     try:
@@ -191,7 +196,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                             env.UpdatePublishedBodies()
                             raw_input("hoge")
                         ## end debug
-                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, - numpy.pi / 2.0 if left_hand else numpy.pi / 2.0)
+                        direction, roll, position, new_roll_mat = offset_direction(direction, roll, position, manipulatordirection, - offset_roll if left_hand else offset_roll)
                         ## debug
                         if debug_mode:
                             pose2 = poseFromGraspParams(direction, roll, position, manipulatordirection)
@@ -321,9 +326,9 @@ def try_grasp():
     print "Num!"
     print len(success_grasp_list)
     dim = box.dimensions
-    dimx = dim.x/2
-    dimy = dim.y/2
-    dimz = dim.z/2
+    dimx = dim.x/2+0.01
+    dimy = dim.y/2+0.01
+    dimz = dim.z/2+0.015
     b_position = box.pose.position
     p = numpy.array([b_position.x, b_position.y, b_position.z])
     box_pose_mat = tf.listener.xyzw_to_mat44(box.pose.orientation)
@@ -373,13 +378,18 @@ def show_result(grasp_list_array, grasper, env):
             drawContacts(grasp_list[0], grasper, env)
             env.UpdatePublishedBodies()
             raw_input('press any key to continue:(1) ')
+            target2 = env.GetKinBody('mug2')
+            target2.SetVisible(False)
+            env.UpdatePublishedBodies()
+            raw_input('press any key to continue:(1.5) ')
+            target2.SetVisible(True)
             grasper.robot.SetTransform(grasp_list[3][1])
             grasper.robot.SetDOFValues(grasp_list[3][0])
             drawContacts(grasp_list[1], grasper, env)
             env.UpdatePublishedBodies()
             raw_input('press any key to continue:(2) ')
 
-def drawContacts(contacts,grasper, env, conelength=0.3,transparency=0.5):
+def drawContacts(contacts,grasper, env, conelength=0.07,transparency=0.5):
     if env.GetViewer() is not None:
         angs = numpy.linspace(0,2*numpy.pi,10)
         conepoints = numpy.r_[[[0,0,0]],conelength*numpy.c_[grasper.friction*numpy.cos(angs),grasper.friction*numpy.sin(angs),numpy.ones(len(angs))]]

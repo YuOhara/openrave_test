@@ -29,3 +29,6 @@ if __name__ == '__main__':
     f2 = open('%s/.ros/grasps/result_%s.txt' % (HOME_PATH, formatstring) , 'w')
     pickle.dump(success_grasp_list, f2)
     f2.close()
+    f2 = open('%s/.ros/grasps/resultfalse_%s.txt' % (HOME_PATH, formatstring) , 'w')
+    pickle.dump(half_success_grasp_list, f2)
+    f2.close()
