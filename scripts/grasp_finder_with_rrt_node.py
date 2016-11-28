@@ -32,9 +32,9 @@ linelist = None
 linelist_temp = None
 contactlist = None
 only_read = False
+box_minus = None
 
-def callback(box):
-    print "callback start!"
+def change_frame(box):
     listener = tf.TransformListener()
     try:
         now = rospy.Time(0)
@@ -48,10 +48,16 @@ def callback(box):
         # assemble return value PoseStampe
         box.pose = geometry_msgs.msg.Pose(geometry_msgs.msg.Point(*xyz), geometry_msgs.msg.Quaternion(*quat))
         box.header.frame_id = "kinfu_origin"
-        #target.SetTransform(numpy.dot(transformations.translation_matrix(trans), transformations.quaternion_matrix(rot)))
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
         print "tf error: %s" % e
         return
+
+
+def callback(box):
+    print "callback start!"
+    change_frame(box)
+    if box_minus:
+        change_frame(box_minus)
     ## call service for save mesh
     left_hand = rospy.get_param("~left_hand", False)
     if not left_hand:
@@ -76,6 +82,9 @@ def callback(box):
         f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
         pickle.dump(box, f)
         f.close()
+        f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH, 'w')
+        pickle.dump(box_minus, f)
+        f.close()
         check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh_estimated.ply _output_file_name:=%s/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
         print check
         check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
@@ -90,6 +99,10 @@ def callback(box):
             rospy.loginfo("wait for right")
             time.sleep(10)
     try_grasp()
+
+def callback_minus(box):
+    global box_minus
+    box_minus = box
 
 def initialize_env(left_hand):
     env=Environment()
@@ -273,6 +286,9 @@ def try_grasp():
     f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
+    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
+    box_minus = pickle.load(f)
+    f.close()
     if left_hand:
         rospy.loginfo("left hand")
     else:
@@ -285,7 +301,6 @@ def try_grasp():
     approachrays = return_box_approach_rays(gmodel, box)
 
     # target0 = env.GetKinBody('mug0')
-
     # if False:
     #     target1.Enable(False)
     #     target1.SetVisible(True)
@@ -333,14 +348,30 @@ def try_grasp():
     p = numpy.array([b_position.x, b_position.y, b_position.z])
     box_pose_mat = tf.listener.xyzw_to_mat44(box.pose.orientation)
     box_pose_mat[:,3][0:3] = p
-    print "dims"
-    print dimx, dimy, dimz
+    if box_minus:
+        box_minus_pose_mat = tf.listener.xyzw_to_mat44(box_minus.pose.orientation)
+        box_minus_pose_mat[:,3][0:3] = p
+        dim_minus = box_minus.dimensions
+        dimx_minus = dim_minus.x/2
+        dimy_minus = dim_minus.y/2
+        dimz_minus = dim_minus.z/2 - 0.01
+        print "dims"
+        print dimx_minus, dimy_minus, dimz_minus
     full_success_grasp_list = []
     for grasp_node in success_grasp_list:
         contact_num = 0
         ave_x = ave_y = ave_z = 0
         temp_pose = Pose()
+        success_flug = True
         for contact in grasp_node[0]:
+            if box_minus:
+                local_pos_minus = numpy.dot(numpy.linalg.inv(box_minus_pose_mat)
+                                            , (contact[0], contact[1], contact[2], 1))[0:3]
+                if local_pos_minus[0] < dimx_minus and local_pos_minus[0] > -dimx_minus and local_pos_minus[1] < dimy_minus and local_pos_minus[1] > -dimy_minus and local_pos_minus[2] < dimz_minus and local_pos_minus[2] > -dimz_minus:
+                    pass
+                else:
+                    success_flug = False
+                    print local_pos_minus
             ave_x = ave_x + contact[0]
             ave_y = ave_y + contact[1]
             ave_z = ave_z + contact[2]
@@ -351,6 +382,11 @@ def try_grasp():
         local_pos = numpy.dot(numpy.linalg.inv(box_pose_mat)
                               , (temp_pose.position.x, temp_pose.position.y, temp_pose.position.z, 1))[0:3]
         if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
+            pass
+        else:
+            pass
+            # success_flug = False
+        if success_flug:
             com_array_msg.poses.append(temp_pose)
             grasper.robot.SetTransform(grasp_node[2][1])
             pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
@@ -434,6 +470,7 @@ def grasp_finder():
     clip_box_pub = rospy.Publisher('~attension_clip', BoundingBox, latch=False)
     rospy.Subscriber("/bounding_box_marker/selected_box", BoundingBox, callback)
     rospy.Subscriber("/select_box", String, marker_callback)
+    rospy.Subscriber("/offset_box_publisher/output", BoundingBox, callback_minus)
     rospy.Subscriber("/attension_clip_request", String, marker_callback_clip)
 
 
