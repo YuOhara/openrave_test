@@ -6,8 +6,7 @@
     <!-- <arg name="INFO" value="/multisense/left/camera_info"/> -->
     <!-- <arg name="POINTS" value="/multisense/resize_1_4/points" /> -->
     <arg name="INPUT" value="/camera_remote/depth_registered/hw_registered/image_rect_raw_calibrated" />
-    <arg name="INFO" value="/camera_remote/rgb_half/camera_info"/>
+    <arg name="INFO" value="/camera_remote/depth_registered/camera_info"/>
     <arg name="POINTS" value="/camera_remote/depth_registered/points" />
   </include>
-  <include file="$(find openrave_test)/launch/boundingbox_filter.launch" />
 </launch>

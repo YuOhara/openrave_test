@@ -1,26 +1,50 @@
 <launch>
+  <node pkg="jsk_topic_tools" type="passthrough" name="pass_cloud">
+    <remap from="~input" to="/kinfu/output/cloud" />
+    <remap from="~output" to="/cloud_pcd" />
+  </node>
+  <node name ="subsample_input" pkg="nodelet" type="nodelet"
+      args="standalone pcl/VoxelGrid" output="screen">
+      <remap from="~input" to="/cloud_pcd" />
+    <rosparam>
+      leaf_size: 0.008
+    </rosparam>
+  </node>
+  <node name ="subsample_reference" pkg="nodelet" type="nodelet"
+      args="standalone pcl/VoxelGrid" output="screen">
+    <remap from="~input" to="pointcloud_server/cloud" />
+    <rosparam>
+      leaf_size: 0.005
+    </rosparam>
+  </node>
+  <node name="ppf_registration" pkg="nodelet" type="nodelet"
+    args="standalone jsk_pcl/PPFRegistration" output="screen">
+    <remap from="~input/cloud" to="/subsample_input/output" />
+    <remap from="~input/reference_cloud" to="/subsample_reference/output" />
+    <rosparam>
+      approximate_sync: true
+      queue_size: 1000
+      sampling_rate: 10
+      search_radius: 0.05
+      position_clustering_threshold: 0.2
+      rotation_clustering_threshold: 30
+      use_array: false
+    </rosparam>
+  </node>
   <node pkg="nodelet" type="nodelet" name="icp_registration"
         args="standalone jsk_pcl/ICPRegistration"
         output="screen">
     <param name="align_box" value="false" />
     <param name="use_flipped_initial_pose" value="false" />
     <remap from="~input" to="/cloud_pcd" />
-    <remap from="~input_reference_array" to="pointcloud_server/output" />
+    <remap from="~input_reference" to="pointcloud_server/cloud" />
   </node>
   <node pkg="nodelet" type="nodelet" name="pointcloud_server"
         args="standalone jsk_pcl/PointcloudDatabaseServer"
         output="screen">
     <rosparam subst_value="true">
-      models: ["$(find openrave_test)/data/table.pcd"]
+      models: ["$(find openrave_test)/data/template.pcd"]
+      use_array: false
     </rosparam>
   </node>
-  <node pkg="jsk_topic_tools" type="relay" name="relay1" >
-    <remap from="~input" to="/icp_registration/output"/>
-    <remap from="~output" to="/octree/input" />
-  </node>
-  <node pkg="jsk_topic_tools" type="relay" name="relay2" >
-    <remap from="~input" to="/cloud_pcd" />
-    <remap from="~output" to="/octree/input" />
-  </node>
-  <node pkg="jsk_pcl_ros" name="octree" type="octree_change_publisher" />
 </launch>

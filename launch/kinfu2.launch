@@ -2,7 +2,7 @@
   <arg name="INPUT" default="/camera/depth/image_rect" />
   <arg name="INFO" default="/camera/depth/camera_info" />
   <arg name="POINTS" default="/camera/depth/points" />
-  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen">
+  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen" respawn="true">
     <remap from="~input/depth" to="$(arg INPUT)" />
     <remap from="~input/color" to="$(arg INPUT)" />
     <remap from="~input/info" to="$(arg INFO)" />
@@ -19,9 +19,12 @@
   <!--   <arg name="INPUT" value="/kinfu/output/cloud" /> -->
   <!--   <arg name="LASER_FLAME_ID" default="/camera_depth_optical_frame" /> -->
   <!-- </include> -->
-  <include file="$(find jsk_pcl_ros)/launch/organized_multi_plane_segmentation.launch">
-    <arg name="INPUT" value="/camera_remote/depth_registered/points" />
+  <!-- <include file="$(find jsk_pcl_ros)/launch/organized_multi_plane_segmentation.launch"> -->
+  <!--   <arg name="INPUT" value="/camera_remote/depth_registered/points" /> -->
+  <!-- </include> -->
+  <include file="$(find openrave_test)/launch/table_extraction.launch">
   </include>
+
   <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="true">
     <param name="~left_hand" value="false" />
   </node>
