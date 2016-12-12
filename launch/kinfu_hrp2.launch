@@ -15,14 +15,14 @@
       child_frame_id: /camera_depth_optical_frame
     </rosparam>
   </node>
-  <node pkg="nodelet" type="nodelet"
-        args="load pcl/VoxelGrid kinfu_manager"
-        name="voxel_grid">
-    <remap from="~input" to="kinfu/output/unknown"/>
-    <rosparam>
-      leaf_size: 0.1
-      filter_limit_min: -10.0
-      filter_limit_max: 10.0
-    </rosparam>
-  </node>
+  <!-- <node pkg="nodelet" type="nodelet" -->
+  <!--       args="load pcl/VoxelGrid kinfu_manager" -->
+  <!--       name="voxel_grid"> -->
+  <!--   <remap from="~input" to="kinfu/output/unknown"/> -->
+  <!--   <rosparam> -->
+  <!--     leaf_size: 0.1 -->
+  <!--     filter_limit_min: -10.0 -->
+  <!--     filter_limit_max: 10.0 -->
+  <!--   </rosparam> -->
+  <!-- </node> -->
 </launch>

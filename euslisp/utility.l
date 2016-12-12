@@ -15,7 +15,7 @@
   )
 
 (defun fullbody-ik
-  (tc-hand)
+  (tc-hand &key (end-coords nil))
   (let (tc)
     (setq tc
           (list
@@ -24,6 +24,9 @@
            (send *robot* :lleg :end-coords :copy-worldcoords)))
     (with-move-target-link-list
      (mt ll *robot* (list :rarm :rleg :lleg))
+     (if end-coords
+         (setf (elt mt 0) end-coords)
+         )
      (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil)
      )
     )

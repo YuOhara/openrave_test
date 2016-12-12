@@ -60,6 +60,7 @@ def callback(box):
         change_frame(box_minus)
     ## call service for save mesh
     left_hand = rospy.get_param("~left_hand", False)
+    robot_name = rospy.get_param("~robot_name", "hrp2")
     if not left_hand:
         rospy.loginfo("save mesh start")
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
@@ -104,11 +105,32 @@ def callback_minus(box):
     global box_minus
     box_minus = box
 
-def initialize_env(left_hand):
+def initialize_env(left_hand, robot_name):
     env=Environment()
-    env.Load('%s/scripts/config/hand_and_world.env.xml' % OPENRAVE_TEST_PATH)
-    hand1 = env.GetRobots()[0]
-    hand2 = env.GetRobots()[1]
+    hand1 = None
+    hand2 = None
+    if robot_name == "hrp2":
+        env.Load('%s/scripts/config/hand_and_world.env.xml' % OPENRAVE_TEST_PATH)
+        hand1 = env.GetRobots()[0]
+        hand2 = env.GetRobots()[1]
+        hand1.SetDOFValues([90, 90, 0, 0, -40, -40])
+        hand1.SetDOFValues([90, 90, 0, 0, -40, -40])
+    elif robot_name == "baxter":
+        env.Load('%s/scripts/config/world.env.xml' % OPENRAVE_TEST_PATH)
+        module = RaveCreateModule(env, "urdf")
+        APC_PATH = rospkg.RosPack().get_path("jsk_2016_01_baxter_apc")
+        module.SendCommand("LoadURI %s/robots/openrave_config/right_vacuum_gripper_only.urdf %s/robots/openrave_config/right_vacuum_gripper_only.srdf" % (APC_PATH, APC_PATH))
+        hand1 = hand2 = env.GetRobots()[0] # todo load left hand if left hand is made
+        manip = hand1.GetManipulators()[0]
+        manip.SetChuckingDirection([1, 1])
+        manip.SetLocalToolDirection([0, 0, 1])
+        trans = numpy.eye(4)
+        trans[0:3, 3] = numpy.array([0.035, 0, 0.3])
+        manip.SetLocalToolTransform(trans)
+        target = env.GetKinBody('mug1')
+        hand1.SetDOFValues([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    else:
+        rospy.logerr("Robot %s Not Found", robot_name)
     robot = hand2 if left_hand else hand1
     target1 = env.GetKinBody('mug1')
     target2 = env.GetKinBody('mug2')
@@ -144,8 +166,8 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
 def load_and_save_trial_single(index, formatstring):
     check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
 
-def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand):
-    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand)
+def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name):
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand, robot_name)
     # collisionChecker = RaveCreateCollisionChecker(env,'fcl')
     # env.SetCollisionChecker(collisionChecker)
     # debug
@@ -155,7 +177,6 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
         # env.drawlinelist(points=numpy.array([[0, 0, 0], [0, 0, 1]]), linewidth=10, colors=numpy.array((1, 0, 0, 1))) # example
         # env.UpdatePublishedBodies()
     print "len_approach %d" % len_approach
-    taskmanip.robot.SetDOFValues([90, 90, 0, 0, -40, -40])
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
     # preshape = robot.GetDOFValues(manip.GetGripperIndices())
@@ -283,6 +304,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
 def try_grasp():
     # pickle
     left_hand = rospy.get_param("~left_hand", False)
+    robot_name = rospy.get_param("~robot_name", "hrp2")
     f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
@@ -293,7 +315,7 @@ def try_grasp():
         rospy.loginfo("left hand")
     else:
         rospy.loginfo("right hand")
-    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand)
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     if not debug_mode:
         env.SetViewer('qtcoin')
     target2.Enable(False)
@@ -328,7 +350,7 @@ def try_grasp():
     format_string = "left" if left_hand else "right"
     start = time.time()
     if debug_mode:
-        trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand) #debug
+        trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name) #debug
     else:
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
     elapsed_time = time.time() - start
@@ -384,8 +406,7 @@ def try_grasp():
         if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
             pass
         else:
-            pass
-            # success_flug = False
+            success_flug = False
         if success_flug:
             com_array_msg.poses.append(temp_pose)
             grasper.robot.SetTransform(grasp_node[2][1])

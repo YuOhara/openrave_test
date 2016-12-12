@@ -7,7 +7,7 @@
       args="standalone pcl/VoxelGrid" output="screen">
       <remap from="~input" to="/cloud_pcd" />
     <rosparam>
-      leaf_size: 0.008
+      leaf_size: 0.005
     </rosparam>
   </node>
   <node name ="subsample_reference" pkg="nodelet" type="nodelet"
@@ -39,11 +39,22 @@
     <remap from="~input" to="/cloud_pcd" />
     <remap from="~input_reference" to="pointcloud_server/cloud" />
   </node>
+  <node pkg="nodelet" type="nodelet"
+        name="particle_filter_tracker"
+        args="standalone jsk_pcl/ParticleFilterTracking"
+        output="screen" clear_params="true">
+    <remap from="~input" to="/cloud_pcd" />
+    <param name="track_target_name" value="hoge" />
+    <param name="align_box" value="false" />
+    <remap from="~renew_model" to="/cloud_pcd2" />
+    <param name="BASE_FRAME_ID" value="/base_link" />
+  </node>
+
   <node pkg="nodelet" type="nodelet" name="pointcloud_server"
         args="standalone jsk_pcl/PointcloudDatabaseServer"
         output="screen">
     <rosparam subst_value="true">
-      models: ["$(find openrave_test)/data/template.pcd"]
+      models: ["$(find openrave_test)/data/template2.pcd"]
       use_array: false
     </rosparam>
   </node>
