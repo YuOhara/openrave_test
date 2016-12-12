@@ -128,6 +128,7 @@
 
 (defun init-robot ()
   (hrp2jsknts-init)
+  ;(setq *hrp2jsknts* (instance hrp2jsknts-robot :init))
   (setq *robot* *hrp2jsknts*)
   (unless (boundp '*tfl*)
     (setq *tfl* (instance ros::transform-listener :init)))
@@ -135,7 +136,13 @@
   (setq *hand-coords-l*  (send (send (send *robot* :hand :larm) :copy-worldcoords) :transformation (send (send *robot* :larm :end-coords) :copy-worldcoords)))
   (send *robot* :fix-leg-to-coords (make-coords))
   (send *robot* :hand :rarm :hook-pose)
+
+  (setq *finger-endcoords-r* (make-cascoords
+   :coords
+   (send (send (send (send (send *robot* :rarm :end-coords) :copy-worldcoords) :translate (float-vector 100 2.0 0.0) :local) :rotate (deg2rad -45) :z :local) :rotate (deg2rad 90) :x)
+   :parent (send (send *robot* :rarm :end-coords) :parent)))
   )
+
 
 
 (defun callback (msg)
@@ -498,14 +505,14 @@
       (look-around1)
     (return)
     )
-  (if (y-or-n-p "done grasp caluculation?")
+ (if (y-or-n-p "done grasp caluculation?")
       (ros::spin-once)
     (return)
     )
   (if (y-or-n-p "first grasp starts, ok?")
       (do-motion2 :rarm)
     (return)
-    )
+   )
   (if (y-or-n-p "done second grasp caluculation?")
       (ros::spin-once)
     (return)
@@ -591,6 +598,9 @@
 
 (defun save-box (box-msg)
   (setq *cube* (ros::bounding-box->cube box-msg "ground"))
+  (if (> (v. (send *cube* :worldpos) (send *cube* :x-axis))  0)
+      (send *cube* :rotate (deg2rad 180)  :z)
+      )
   (objects (list *robot* *cube*))
   )
 
@@ -602,37 +612,20 @@
         )
     (send *robot* :reset-manip-pose)
     (send *robot* :fix-leg-to-coords (make-coords))
-    (fullbody-ik (send (send (make-coords :pos (send (send *cube* :copy-worldcoords) :worldpos)) :rotate (deg2rad -90) :x) :translate (float-vector 0 40 (+ (/ (elt dim 2) 2) 180)) :world))
+    (setq size (elt dim 1))
+    (setq edge-coords1 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ size 2) 0 0)))
+    (setq edge-coords2 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ 0 -2) 0 0)))
+    (fullbody-ik edge-coords1 :end-coords *finger-endcoords-r*)
+    (fullbody-move-end-pos :rarm 0 0 200 :world)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
-    (fullbody-ik (send (send (send (make-coords :pos (send (send *cube* :copy-worldcoords) :worldpos)) :rotate (deg2rad -90) :x) :rotate (deg2rad 30) :z) :translate (float-vector -20 40 (+ (/ (elt dim 2) 2) 50)) :world))
+    (fullbody-ik edge-coords1 :end-coords *finger-endcoords-r*)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
-    (if (> (elt dim 0) (elt dim 1))
-	(progn
-          (setq size (elt dim 0))
-          (setq direc (send *cube* :x-axis))
-          )
-      (progn
-        (setq size (elt dim 1))
-        (setq direc (send *cube* :y-axis))
-        )
-      )
-    (setq tmp-pos (send (send *cube* :copy-worldcoords) :worldpos))
-    (setf (elt tmp-pos 2) 0)
-    (if (> (v. direc tmp-pos) 0)
-        (setq direc (scale -1 direc))
-      )
-    (setq direc (scale (/ size 2) direc))
-    (setq dx (elt direc 0))
-    (setq dy (elt direc 1))
-    (setq dz (elt direc 2))
-    (setq dx (- (/ size 2)))
-    (setq dy 0)
-    (setq dz 0)
-    (fullbody-move-end-pos :rarm dx dy dz :world)
+    (fullbody-ik edge-coords2 :end-coords *finger-endcoords-r*)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
+    (send *cube* :translate (float-vector (/ (- size) 2) 0 0))
     (fullbody-move-end-pos :rarm 0 0 200 :world)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
@@ -642,6 +635,18 @@
     )
   (unix::system "rosnode kill /kinfu") ;; sometimes no res? also
   (unix::system "rosnode kill /grasp_finder_right") ;; sometimes no res? also
+  (setq res (ros::service-call "/transformable_server_sample/set_pose"
+                               (instance jsk_interactive_marker/SetTransformableMarkerPose :init
+:pose_stamped (ros::coords->tf-pose (send *cube* :worldcoords)))))
+  )
+
+(defun set-box-set
+  ()
+  (setq *table* (make-cube 500 700 100))
+  (send *table* :newcoords (make-coords :pos (float-vector 800 -200 800) :rpy (list (/ pi 4) 0 0)))
+  (setq *cube* (make-cube 100 50 20))
+  (send *cube* :newcoords (make-coords :pos (float-vector 500 -0 860) :rpy (list (/ pi 4) 0 0)))
+  (objects (list *cube* *table* *hrp2jsknts*))
   )
 
 (ros::roseus "sample-grasp-node")
