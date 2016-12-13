@@ -66,7 +66,9 @@ def callback(box):
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
         rospy.loginfo("save mesh end")
         ## change ply -> dae
-        check = commands.getoutput("meshlabserver -i ~/.ros/mesh.ply -o ~/.ros/mesh.dae")
+        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh.ply _output_file_name:=%s/.ros/mesh0.ply" % (box.dimensions.x+1.00, box.dimensions.y+1.00, box.dimensions.z+ 1.00, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
+        print check
+        check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh.dae")
         print check
         check = commands.getoutput("cp ~/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
         print check
@@ -90,8 +92,6 @@ def callback(box):
         print check
         check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
         print check
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh.ply _output_file_name:=%s/.ros/mesh0.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
-        print check
         check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh0.dae")
         print check
     else:
@@ -114,7 +114,7 @@ def initialize_env(left_hand, robot_name):
         hand1 = env.GetRobots()[0]
         hand2 = env.GetRobots()[1]
         hand1.SetDOFValues([90, 90, 0, 0, -40, -40])
-        hand1.SetDOFValues([90, 90, 0, 0, -40, -40])
+        hand2.SetDOFValues([90, 90, 0, 0, -40, -40])
     elif robot_name == "baxter":
         env.Load('%s/scripts/config/world.env.xml' % OPENRAVE_TEST_PATH)
         module = RaveCreateModule(env, "urdf")

@@ -27,7 +27,7 @@
      (if end-coords
          (setf (elt mt 0) end-coords)
          )
-     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil)
+     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? t)
      )
     )
   )

@@ -7,6 +7,8 @@
 (ros::roseus-add-srvs "openrave_test")
 (ros::roseus-add-msgs "openrave_test")
 (ros::roseus-add-msgs "jsk_recognition_msgs")
+(ros::roseus-add-msgs "jsk_interactive_marker")
+(ros::roseus-add-srvs "jsk_interactive_marker")
 (load "package://openrave_test/euslisp/utility.l")
 (load "package://openrave_test/euslisp/eusjsk-recognition.l")
 
@@ -334,10 +336,10 @@
   )
 
 (defun reset-manip-pose-with-bend
-  (&key (offset 0))
+  (&key (offset 0) (head 30))
   (send *robot* :reset-manip-pose)
   (send *robot* :legs :move-end-pos (float-vector 0 0 offset))
-  (send *robot* :head :neck-p :joint-angle 30)
+  (send *robot* :head :neck-p :joint-angle head)
   )
 
 (defun do-motion
@@ -363,6 +365,7 @@
 
 (defun do-motion2 (arm)
   (if (equal arm :rarm) (go-pos-exec))
+  (open-hand arm)
   (send *ri* :angle-vector (send *robot* :angle-vector) 20000)
   (send *ri* :wait-interpolation)
   (if (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0 ))
@@ -574,7 +577,7 @@
   )
 
 (defun bend-legs ()
-  (reset-manip-pose-with-bend :offset 150)
+  (reset-manip-pose-with-bend :offset 150 :head 20)
   (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
   (send *ri* :wait-interpolation)
   (reset-manip-pose-with-bend :offset 0)
@@ -593,13 +596,17 @@
 
 
 (defun look-around1 ()
-  (progn (bend-legs) (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
+  (progn ;; (bend-legs) 
+         (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
   )
 
 (defun save-box (box-msg)
   (setq *cube* (ros::bounding-box->cube box-msg "ground"))
-  (if (> (v. (send *cube* :worldpos) (send *cube* :x-axis))  0)
-      (send *cube* :rotate (deg2rad 180)  :z)
+  (if (< (v. (send *cube* :worldpos) (send *cube* :z-axis))  0)
+      (send *cube* :rotate (deg2rad 180) :x)
+      )
+  (if (< (v. (send *cube* :worldpos) (send *cube* :x-axis))  0)
+      (send *cube* :rotate (deg2rad 180) :z)
       )
   (objects (list *robot* *cube*))
   )
@@ -607,12 +614,13 @@
 (defun pull-box ()
   (let (size
 	;; direc
-	(dim (cdr (car (send *cube* :csg))))
+	dim
                                         ;dx dy dz
         )
+    (setq dim (cdr (car (send *cube* :csg))))
     (send *robot* :reset-manip-pose)
     (send *robot* :fix-leg-to-coords (make-coords))
-    (setq size (elt dim 1))
+    (setq size (elt dim 0))
     (setq edge-coords1 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ size 2) 0 0)))
     (setq edge-coords2 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ 0 -2) 0 0)))
     (fullbody-ik edge-coords1 :end-coords *finger-endcoords-r*)
@@ -636,8 +644,12 @@
   (unix::system "rosnode kill /kinfu") ;; sometimes no res? also
   (unix::system "rosnode kill /grasp_finder_right") ;; sometimes no res? also
   (setq res (ros::service-call "/transformable_server_sample/set_pose"
-                               (instance jsk_interactive_marker/SetTransformableMarkerPose :init
-:pose_stamped (ros::coords->tf-pose (send *cube* :worldcoords)))))
+                               (instance jsk_interactive_marker::SetTransformableMarkerPoseRequest :init
+:pose_stamped (ros::coords->tf-pose-stamped (send *cube* :worldcoords) "/ground"))))
+  (setq res (ros::service-call "/transformable_server_sample/set_dimensions"
+                               (instance jsk_interactive_marker::SetMarkerDimensionsRequest :init
+                                         :dimensions 
+                                         (instance jsk_interactive_marker::MarkerDimensions :init :x (* (elt dim 0) 0.0012) :y (* (elt dim 1) 0.0012) :z (* (elt dim 2) 0.0014)))))
   )
 
 (defun set-box-set
