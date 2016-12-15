@@ -27,17 +27,20 @@
      (if end-coords
          (setf (elt mt 0) end-coords)
          )
-     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? t)
+     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil)
      )
     )
   )
 
 (defun sort-angle-vector 
-  ()
+  (&key (current nil))
   (let ((appended-list nil)
         (sorted-list nil)
         )
-    (setq *robot-angle* (send *ri* :state :potentio-vector))
+    (if current
+        (setq *robot-angle* current)
+      (setq *robot-angle* (send *ri* :state :potentio-vector))
+      )
     (dotimes (i (length *ik-result*))
       (push (list (elt *ik-result* i) (elt *hand-result* i)) appended-list)
       )
