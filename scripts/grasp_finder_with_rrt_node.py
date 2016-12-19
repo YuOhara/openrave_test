@@ -182,7 +182,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     # preshape = robot.GetDOFValues(manip.GetGripperIndices())
     # for approachray in approachrays:
     try_num = 0
-    graspnoise = -0.002
+    graspnoise = -0.001
     rolls = [0, numpy.pi/4, numpy.pi/2, numpy.pi*3/4, numpy.pi, numpy.pi*5/4, numpy.pi*3/2, numpy.pi*7/4]
     # rolls = [0]
     rolls_size = len(rolls)
@@ -191,6 +191,8 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     standoffs_size = len(standoffs)
     offset_rolls = [0, numpy.pi / 2.0]
     offset_rolls_size = len(rolls)
+    translationstepmult = 0.01
+    finestep = 0.0003
     for approachray in approachrays:
         for standoff in standoffs:
             pose_msg = Pose()
@@ -238,11 +240,11 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                             env.UpdatePublishedBodies()
                             raw_input("fuga")
                         ## end debug
-                        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                        contacts,finalconfig,mindist,volume = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=translationstepmult, finestep=finestep, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                         if graspnoise > 0.00:
                             for i in range(20):
-                                contacts_n,finalconfig_n,mindist_n,volume_n = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = graspnoise, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-                                if mindist_n < 1e-9:
+                                contacts_n,finalconfig_n,mindist_n,volume_n = grasper.Grasp(direction=direction, roll=roll, position=position, standoff=standoff, manipulatordirection=manipulatordirection, target=target1, graspingnoise = graspnoise, forceclosure=True, execute=False, outputfinal=True,translationstepmult=translationstepmult, finestep=finestep, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                                if mindist_n < 1e-4:
                                     mindist = mindist_n
                                     break
                         ## debug
@@ -254,7 +256,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                             raw_input("piyo")
                         ## end debug
                         # print "mindist! %f" % mindist
-                        if mindist > 1e-9:
+                        if mindist > 1e-4:
                             grasper.robot.SetTransform(finalconfig[1])
                             # env.UpdatePublishedBodies()
                             Tgrasp = manip.GetEndEffectorTransform()
@@ -269,15 +271,15 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                             robot.SetTransform(numpy.eye(4))
                             robot.SetDOFValues(preshape, manip.GetGripperIndices())
                             robot.SetActiveDOFs(manip.GetGripperIndices(),DOFAffine.X+DOFAffine.Y+DOFAffine.Z if True else 0)
-                            contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                            contacts2,finalconfig2,mindist2,volume2 = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = 0.0, forceclosure=True, execute=False, outputfinal=True,translationstepmult=translationstepmult, finestep=finestep, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
                             if graspnoise > 0.00:
                                 for i in range(20):
-                                    contacts2_n,finalconfig2_n,mindist2_n,volume2_n = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = graspnoise, forceclosure=True, execute=False, outputfinal=True,translationstepmult=None, finestep=None, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
-                                    if mindist2_n < 1e-9:
+                                    contacts2_n,finalconfig2_n,mindist2_n,volume2_n = grasper.Grasp(direction=direction2, roll=roll2, position=position2, standoff=standoff, manipulatordirection=manipulatordirection, target=target2, graspingnoise = graspnoise, forceclosure=True, execute=False, outputfinal=True,translationstepmult=translationstepmult, finestep=finestep, vintersectplane=numpy.array([0.0, 0.0, 0.0, 0.0]), chuckingdirection=manip.GetChuckingDirection())
+                                    if mindist2_n < 1e-4:
                                         mindist2 = mindist2_n
                                         break
                             print "mindists %f %f" % (mindist, mindist2)
-                            if mindist > 1e-9 and mindist2 > 1e-9 and numpy.linalg.norm(finalconfig[1][:,3][0:3] - finalconfig2[1][:,3][0:3]) < 0.015:
+                            if mindist > 1e-4 and mindist2 > 1e-4 and numpy.linalg.norm(finalconfig[1][:,3][0:3] - finalconfig2[1][:,3][0:3]) < 0.015:
                             # if True:
                                 # grasper.robot.SetTransform(finalconfig[1])
                                 # grasper.robot.SetDOFValues(finalconfig[0])

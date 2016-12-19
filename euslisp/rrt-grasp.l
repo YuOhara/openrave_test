@@ -241,7 +241,7 @@
       (objects (list *robot* *tmp-world*))
       (reset-manip-pose-with-bend)
       ;; (go-pos-coords (elt lst 0))
-      (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
+      (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 0 0 0)))
       )
     )
   ;; (setq *ret* (solve-rrt *wgrs* arm))
@@ -249,7 +249,7 @@
   (if (equal arm :rarm) (all-ik) 
     (progn
       ;; (send *robot* :angle-vector *tmp*)
-      (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 200 0 0)))
+      (send *robot* :fix-leg-to-coords (make-coords :pos (float-vector 0 0 0)))
       (all-ik2)
       )
     )
@@ -348,7 +348,7 @@
   )
 
 (defun reset-manip-pose-with-bend
-  (&key (offset 0) (head 30))
+  (&key (offset 0) (head 23))
   (send *robot* :reset-manip-pose)
   (send *robot* :legs :move-end-pos (float-vector 0 0 offset))
   (send *robot* :head :neck-p :joint-angle head)
@@ -357,7 +357,7 @@
 (defun do-motion
   (arm)
   ; (open-hand arm)
-  (go-pos-exec)
+  ; (go-pos-exec)
   (reset-manip-pose-with-bend)
   (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
   (send *ri* :wait-interpolation)
@@ -377,7 +377,9 @@
   )
 
 (defun do-motion2 (arm)
-  (if (equal arm :rarm) (go-pos-exec))
+  ;; (if (equal arm :rarm) 
+  ;;     (go-pos-exec)
+  ;;     )
   (open-hand arm)
   (show-hand arm 0)
   (setq *current* (send *robot* :angle-vector))
@@ -619,16 +621,25 @@
 
 
 (defun look-around1 ()
-  (progn ;; (bend-legs) 
+  (progn 
+    (bend-legs) 
          (go-pos 0 0.2 0) (bend-legs) (go-pos 0 -0.4 0) (bend-legs) (go-pos 0 0.2 0))
   )
 
 (defun look-around2 ()
   (progn
+    (look-around3)
+    (go-pos 0.2 0 0)
+    )
+  )
+
+(defun look-around3 ()
+  (progn
     (unix::sleep 2)
     (reset-manip-pose-with-bend) (send *ri* :angle-vector (send *robot* :angle-vector) 10000) (send *ri* :wait-interpolation) (go-pos 0 0.3 0) (go-pos 0.1 0 0) (go-pos 0 -0.6 0) (go-pos -0.12 0 0) (go-pos 0 0.3 0)
     )
   )
+
 (defun save-box (box-msg)
   (setq *cube* (ros::bounding-box->cube box-msg "ground"))
   (if (< (v. (send *cube* :worldpos) (send *cube* :z-axis))  0)
@@ -652,6 +663,9 @@
     (setq size (elt dim 0))
     (setq edge-coords1 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ size 2) 0 0)))
     (setq edge-coords2 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ 0 -2) 0 0)))
+    (fullbody-move-end-pos :rarm 150 0 150)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
     (fullbody-ik edge-coords1 :end-coords *finger-endcoords-r*)
     (fullbody-move-end-pos :rarm 0 0 200 :world)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
@@ -667,18 +681,23 @@
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
     (reset-manip-pose-with-bend :offset 0)
+    (send *robot* :fix-leg-to-coords (make-coords))
+    (fullbody-move-end-pos :rarm 150 0 150)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
+    (reset-manip-pose-with-bend :offset 0)
+    (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+    (send *ri* :wait-interpolation)
+    (setq res (ros::service-call "/transformable_server_sample/set_pose"
+                                 (instance jsk_interactive_marker::SetTransformableMarkerPoseRequest :init
+                                           :pose_stamped (ros::coords->tf-pose-stamped (send *cube* :worldcoords) "/ground"))))
+    (setq res (ros::service-call "/transformable_server_sample/set_dimensions"
+                                 (instance jsk_interactive_marker::SetMarkerDimensionsRequest :init
+                                           :dimensions 
+                                           (instance jsk_interactive_marker::MarkerDimensions :init :x (* (elt dim 0) 0.0012) :y (* (elt dim 1) 0.0012) :z (* (elt dim 2) 0.0014)))))
     )
   (unix::system "rosnode kill /kinfu") ;; sometimes no res? also
   (unix::system "rosnode kill /grasp_finder_right") ;; sometimes no res? also
-  (setq res (ros::service-call "/transformable_server_sample/set_pose"
-                               (instance jsk_interactive_marker::SetTransformableMarkerPoseRequest :init
-:pose_stamped (ros::coords->tf-pose-stamped (send *cube* :worldcoords) "/ground"))))
-  (setq res (ros::service-call "/transformable_server_sample/set_dimensions"
-                               (instance jsk_interactive_marker::SetMarkerDimensionsRequest :init
-                                         :dimensions 
-                                         (instance jsk_interactive_marker::MarkerDimensions :init :x (* (elt dim 0) 0.0012) :y (* (elt dim 1) 0.0012) :z (* (elt dim 2) 0.0014)))))
   )
 
 (defun set-box-set

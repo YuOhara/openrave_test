@@ -25,7 +25,7 @@
   <!-- <include file="$(find openrave_test)/launch/table_extraction.launch"> -->
   <!-- </include> -->
 
-  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="true">
+  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="false">
     <param name="~left_hand" value="false" />
   </node>
   <!-- <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true"> -->

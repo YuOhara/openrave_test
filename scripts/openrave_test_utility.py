@@ -12,7 +12,7 @@ def return_box_approach_rays(gmodel, box):
     # ode gives the most accurate rays
     rospy.loginfo("start approach rays")
     env = gmodel.env
-    delta = 0.01
+    delta = 0.012
     normalanglerange = 0
     target = gmodel.target
     cc = RaveCreateCollisionChecker(env,'ode')
