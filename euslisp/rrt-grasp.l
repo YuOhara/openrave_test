@@ -404,7 +404,8 @@
   ; (close-hand-more arm)
   (if (equal arm :rarm)
       (progn
-        (try-grasp arm)
+        (hand-model2real)
+        ;;(try-grasp arm)
         (if
             (fullbody-move-end-pos :rarm 0 0 70 :world)
             ;(send *robot* arm :move-end-pos (float-vector 0 0 70) :world)
@@ -437,10 +438,12 @@
   (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also
   (let (
         (dist-angle (send *robot* :hand arm :angle-vector))
-        (tmp-angle (if (equal arm :rarm)
-                   (subseq (send (send *ri* :hand-state) :reference) 0 6)
-                 (subseq (send (send *ri* :hand-state) :reference) 6 12)
-                 ))
+        (tmp-angle
+         (float-vector 90.0 90.0 0.0 0.0 -40.0 -40.0))
+         ;; (if (equal arm :rarm)
+         ;;           (subseq (send (send *ri* :hand-state) :reference) 0 6)
+         ;;         (subseq (send (send *ri* :hand-state) :reference) 6 12)
+         ;;         ))
         (devide-num 10))
     (dotimes (i devide-num)
       (send *robot* :hand arm :angle-vector (v+ (scale (/ (+ i 1.0) devide-num) dist-angle) (scale (- 1 (/ (+ i 1.0) devide-num)) tmp-angle)))
@@ -466,16 +469,16 @@
     (call-image-save)
     )
   (send *ri* :wait-interpolation)
-  (send *ri* :angle-vector *tmp* 20000)
-  (dotimes (i 12) ;; 20 + 2 for avoid miss
-    (unix::usleep 2000000)
-    (call-image-save)
-    )
-  (call-empty "save_after")
-  ;; save bmf file
-  (save-bmf-file)
-  ;; call moseg
-  (call-moseg)
+  ;; (send *ri* :angle-vector *tmp* 20000)
+  ;; (dotimes (i 12) ;; 20 + 2 for avoid miss
+  ;;   (unix::usleep 2000000)
+  ;;   (call-image-save)
+  ;;   )
+  ;; (call-empty "save_after")
+  ;; ;; save bmf file
+  ;; (save-bmf-file)
+  ;; ;; call moseg
+  ;; (call-moseg)
   )
 (defun call-empty
   (name)
@@ -662,7 +665,7 @@
     (send *robot* :fix-leg-to-coords (make-coords))
     (setq size (elt dim 0))
     (setq edge-coords1 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ size 2) 0 0)))
-    (setq edge-coords2 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ 0 -2) 0 0)))
+    (setq edge-coords2 (send (send *cube* :copy-worldcoords) :translate (float-vector (/ 30 -2) 0 0)))
     (fullbody-move-end-pos :rarm 150 0 150)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
@@ -688,6 +691,9 @@
     (reset-manip-pose-with-bend :offset 0)
     (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
     (send *ri* :wait-interpolation)
+    (unix::system "rosnode kill /kinfu") ;; sometimes no res? also
+    (unix::system "rosnode kill /grasp_finder_right") ;; sometimes no res? also
+    (unix::sleep 5)
     (setq res (ros::service-call "/transformable_server_sample/set_pose"
                                  (instance jsk_interactive_marker::SetTransformableMarkerPoseRequest :init
                                            :pose_stamped (ros::coords->tf-pose-stamped (send *cube* :worldcoords) "/ground"))))
@@ -696,8 +702,6 @@
                                            :dimensions 
                                            (instance jsk_interactive_marker::MarkerDimensions :init :x (* (elt dim 0) 0.0012) :y (* (elt dim 1) 0.0012) :z (* (elt dim 2) 0.0014)))))
     )
-  (unix::system "rosnode kill /kinfu") ;; sometimes no res? also
-  (unix::system "rosnode kill /grasp_finder_right") ;; sometimes no res? also
   )
 
 (defun set-box-set

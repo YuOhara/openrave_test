@@ -62,6 +62,7 @@ def callback(box):
     left_hand = rospy.get_param("~left_hand", False)
     robot_name = rospy.get_param("~robot_name", "hrp2")
     if not left_hand:
+        start = time.time()
         rospy.loginfo("save mesh start")
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
         rospy.loginfo("save mesh end")
@@ -94,6 +95,8 @@ def callback(box):
         print check
         check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh0.dae")
         print check
+        elapsed_time = time.time() - start
+        print ("elapsed_time for convert:{0}".format(elapsed_time)) + "[sec]"
     else:
         commands.getoutput("rm ~/.ros/temp_box.txt")
         while not os.path.exists('%s/.ros/temp_box.txt' % HOME_PATH):
@@ -186,7 +189,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     rolls = [0, numpy.pi/4, numpy.pi/2, numpy.pi*3/4, numpy.pi, numpy.pi*5/4, numpy.pi*3/2, numpy.pi*7/4]
     # rolls = [0]
     rolls_size = len(rolls)
-    standoffs = [0# , 0.025
+    standoffs = [0, #0.025
     ]
     standoffs_size = len(standoffs)
     offset_rolls = [0, numpy.pi / 2.0]
@@ -319,7 +322,8 @@ def try_grasp():
         rospy.loginfo("right hand")
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     if not debug_mode:
-        env.SetViewer('qtcoin')
+        pass
+        # env.SetViewer('qtcoin')
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
@@ -356,7 +360,7 @@ def try_grasp():
     else:
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
     elapsed_time = time.time() - start
-    print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
+    print ("elapsed_time for trial:{0}".format(elapsed_time)) + "[sec]"
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     float_array_msg_list = []
@@ -425,7 +429,7 @@ def try_grasp():
     rave_grasp_array_msg.header = pose_array_msg.header
     rave_grasp_array_msg.grasp_array = float_array_msg_list
     grasp_array_pub.publish(rave_grasp_array_msg)
-    show_result(full_success_grasp_list, grasper, env)
+    # show_result(full_success_grasp_list, grasper, env)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 

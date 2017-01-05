@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import grasp_finder_with_rrt_node
 import grasp_finder_node
 from openravepy import *
