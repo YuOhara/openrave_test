@@ -164,6 +164,9 @@ def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_lis
         f = open('%s/.ros/grasps/result_%s%d.txt' % (HOME_PATH, formatstring, i))
         success_grasp_list_load = pickle.load(f)
         success_grasp_list.extend(success_grasp_list_load)
+        f = open('%s/.ros/grasps/resultfalse_%s%d.txt' % (HOME_PATH, formatstring, i))
+        half_grasp_list_load = pickle.load(f)
+        half_success_grasp_list.extend(half_grasp_list_load)
         f.close()
 
 def load_and_save_trial_single(index, formatstring):
@@ -174,11 +177,10 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     # collisionChecker = RaveCreateCollisionChecker(env,'fcl')
     # env.SetCollisionChecker(collisionChecker)
     # debug
-    if debug_mode:
-        env.SetViewer('qtcoin')
-        show_approachrays(approachrays, env)
-        # env.drawlinelist(points=numpy.array([[0, 0, 0], [0, 0, 1]]), linewidth=10, colors=numpy.array((1, 0, 0, 1))) # example
-        # env.UpdatePublishedBodies()
+    # env.SetViewer('qtcoin')
+    # show_approachrays(approachrays, env)
+    # show_box(box, env)
+
     print "len_approach %d" % len_approach
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
     preshape = final
@@ -219,12 +221,12 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                     try:
                         target1.Enable(True)
                         target2.Enable(False)
-                        direction = -approachray[3:6]
+                        direction = - approachray[3:6] # maybe + is true!
                         position = approachray[0:3]
                         ## debug
                         if debug_mode:
                             global linelist_temp
-                            linelist_temp = env.drawlinelist(points=numpy.array([position, position - 0.2 * direction]), linewidth=10, colors=numpy.array((0, 0, 1, 1)))
+                            linelist_temp = env.drawlinelist(points=numpy.array([position, position - 0.03 * direction]), linewidth=40, colors=numpy.array((0, 0, 1, 1)))
                             # linelist_temp = env.drawlinelist(points=numpy.array([[0, 0, 0], [0, 0, 1]]), linewidth=10, colors=numpy.array((1, 0, 0, 1))) # example
                             print "rolls_before"
                             print direction, roll, position
@@ -253,10 +255,12 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                         ## debug
                         if debug_mode:
                             grasper.robot.SetTransform(finalconfig[1])
+                            raw_input("piyo")
                             grasper.robot.SetDOFValues(finalconfig[0])
                             drawContacts(contacts, grasper, env)
                             env.UpdatePublishedBodies()
-                            raw_input("piyo")
+                            raw_input("hogera")
+                            drawContacts([], grasper, env)
                         ## end debug
                         # print "mindist! %f" % mindist
                         if mindist > 1e-4:
@@ -297,7 +301,8 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                                 grasper.robot.SetTransform(finalconfig[1])
                                 success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
                             else:
-                                half_success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
+                                if True: #numpy.linalg.norm(finalconfig[1][:,3][0:3] - finalconfig2[1][:,3][0:3]) < 0.015:
+                                    half_success_grasp_list.append([contacts, contacts2, finalconfig, finalconfig2])
                         else:
                             mindist2 = 1.0
                         # print "hoge"
@@ -342,7 +347,7 @@ def try_grasp():
     #     target0.Enable(False)
     #     target0.SetVisible(False)
     #     approachrays = return_box_approach_rays(gmodel, box)
-    show_approachrays(approachrays, env)
+    # show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
     len_approach = len(approachrays)
@@ -356,6 +361,9 @@ def try_grasp():
     format_string = "left" if left_hand else "right"
     start = time.time()
     if debug_mode:
+        env.SetViewer('qtcoin')
+        show_approachrays(approachrays, env)
+        show_box(box, env)
         trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name) #debug
     else:
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
@@ -368,6 +376,8 @@ def try_grasp():
     print "Finished"
     print "Num!"
     print len(success_grasp_list)
+    print "Num False!"
+    print len(half_success_grasp_list)
     dim = box.dimensions
     dimx = dim.x/2+0.01
     dimy = dim.y/2+0.01
@@ -386,41 +396,43 @@ def try_grasp():
         print "dims"
         print dimx_minus, dimy_minus, dimz_minus
     full_success_grasp_list = []
-    for grasp_node in success_grasp_list:
-        contact_num = 0
-        ave_x = ave_y = ave_z = 0
-        temp_pose = Pose()
-        success_flug = True
-        for contact in grasp_node[0]:
-            if box_minus:
-                local_pos_minus = numpy.dot(numpy.linalg.inv(box_minus_pose_mat)
-                                            , (contact[0], contact[1], contact[2], 1))[0:3]
-                if local_pos_minus[0] < dimx_minus and local_pos_minus[0] > -dimx_minus and local_pos_minus[1] < dimy_minus and local_pos_minus[1] > -dimy_minus and local_pos_minus[2] < dimz_minus and local_pos_minus[2] > -dimz_minus:
-                    pass
-                else:
-                    success_flug = False
-                    print local_pos_minus
-            ave_x = ave_x + contact[0]
-            ave_y = ave_y + contact[1]
-            ave_z = ave_z + contact[2]
-            contact_num = contact_num + 1
-        temp_pose.position.x = ave_x/contact_num
-        temp_pose.position.y = ave_y/contact_num
-        temp_pose.position.z = ave_z/contact_num
-        local_pos = numpy.dot(numpy.linalg.inv(box_pose_mat)
-                              , (temp_pose.position.x, temp_pose.position.y, temp_pose.position.z, 1))[0:3]
-        if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
-            pass
-        else:
-            success_flug = False
-        if success_flug:
-            com_array_msg.poses.append(temp_pose)
-            grasper.robot.SetTransform(grasp_node[2][1])
-            pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
-            float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
-            full_success_grasp_list.append(grasp_node)
-    print "len after!"
-    print len(com_array_msg.poses)
+    full_half_success_grasp_list = []
+    for success_grasp_list, full_success_grasp_list in [
+            (half_success_grasp_list, full_half_success_grasp_list), ## for debug
+            (success_grasp_list, full_success_grasp_list)]:
+        for grasp_node in success_grasp_list:
+            contact_num = 0
+            ave_x = ave_y = ave_z = 0
+            temp_pose = Pose()
+            success_flug = True
+            for contact in grasp_node[0]:
+                if box_minus:
+                    local_pos_minus = numpy.dot(numpy.linalg.inv(box_minus_pose_mat)
+                                                , (contact[0], contact[1], contact[2], 1))[0:3]
+                    if local_pos_minus[0] < dimx_minus and local_pos_minus[0] > -dimx_minus and local_pos_minus[1] < dimy_minus and local_pos_minus[1] > -dimy_minus and local_pos_minus[2] < dimz_minus and local_pos_minus[2] > -dimz_minus:
+                        pass
+                    else:
+                        success_flug = False
+                        print local_pos_minus
+                ave_x = ave_x + contact[0]
+                ave_y = ave_y + contact[1]
+                ave_z = ave_z + contact[2]
+                contact_num = contact_num + 1
+                temp_pose.position.x = ave_x/contact_num
+                temp_pose.position.y = ave_y/contact_num
+                temp_pose.position.z = ave_z/contact_num
+                local_pos = numpy.dot(numpy.linalg.inv(box_pose_mat)
+                                      , (temp_pose.position.x, temp_pose.position.y, temp_pose.position.z, 1))[0:3]
+            if local_pos[0] < dimx and local_pos[0] > -dimx and local_pos[1] < dimy and local_pos[1] > -dimy and local_pos[2] < dimz and local_pos[2] > -dimz:
+                pass
+            else:
+                success_flug = False
+            if success_flug:
+                com_array_msg.poses.append(temp_pose)
+                grasper.robot.SetTransform(grasp_node[2][1])
+                pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
+                float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
+                full_success_grasp_list.append(grasp_node)
     com_array_msg.header = pose_array_msg.header
     com_array_pub.publish(com_array_msg)
     pose_array_pub.publish(pose_array_msg)
@@ -429,6 +441,8 @@ def try_grasp():
     rave_grasp_array_msg.header = pose_array_msg.header
     rave_grasp_array_msg.grasp_array = float_array_msg_list
     grasp_array_pub.publish(rave_grasp_array_msg)
+    print "len full %d" % len(full_success_grasp_list)
+    print "len half %d" % len(full_half_success_grasp_list)
     # show_result(full_success_grasp_list, grasper, env)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
@@ -523,9 +537,25 @@ def show_approachrays(approachrays, env): ## todo
     gapproachrays = numpy.c_[approachrays[:,0:3],approachrays[:,3:6]]
     N = approachrays.shape[0]
     global linelist
-    linelist = [env.plot3(points=gapproachrays[:,0:3],pointsize=5,colors=numpy.array((1,0,0))), env.drawlinelist(points=numpy.reshape(numpy.c_[gapproachrays[:,0:3],gapproachrays[:,0:3]+0.015*gapproachrays[:,3:6]],(2*N,3)),linewidth=4,colors=numpy.array((1,0,0,1)))]
+    linelist = [env.plot3(points=gapproachrays[:,0:3],pointsize=5,colors=numpy.array((1,0,0))), env.drawlinelist(points=numpy.reshape(numpy.c_[gapproachrays[:,0:3],gapproachrays[:,0:3]-0.0035*gapproachrays[:,3:6]],(2*N,3)),linewidth=500,colors=numpy.array((1,0,0,1)))]
     env.UpdatePublishedBodies()
 
+def show_box(box, env):
+    global linelist_box
+    linelist_box = []
+    pose44 = numpy.dot(tf.listener.xyz_to_mat44(box.pose.position), tf.listener.xyzw_to_mat44(box.pose.orientation))
+    pos = pose44[0:3,3]
+    dx = pose44[0:3,0] * box.dimensions.x / 2
+    dy = pose44[0:3,1] * box.dimensions.y / 2
+    dz = pose44[0:3,2] * box.dimensions.z / 2
+    for d1 in (dx, dy, dz):
+        for d2 in (dx, dy, dz):
+            for d3 in (dx, dy, dz):
+                if numpy.dot(d1, d2) > 1e-5 or numpy.dot(d2, d3) > 1e-5 or numpy.dot(d3, d1) > 1e-5:
+                    continue
+                for d2_a in (d2, -d2):
+                    for d3_a in (d3, -d3):
+                        linelist_box.append(env.drawlinelist(points=numpy.array([pos + d2_a + d3_a - d1,  pos + d2_a + d3_a + d1]), linewidth=10, colors=numpy.array((0, 1, 0, 1))))
 
 if __name__ == '__main__':
     grasp_finder()
