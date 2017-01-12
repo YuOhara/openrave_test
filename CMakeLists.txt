@@ -14,6 +14,7 @@ find_package(catkin REQUIRED
   eigen_conversions
   hrpsys_ros_bridge_tutorials
   rospack
+  cv_bridge
   )
 find_package(OpenMP)
 if(OPENMP_FOUND)
