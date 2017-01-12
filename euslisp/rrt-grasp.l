@@ -65,7 +65,11 @@
 (defun move-robot (coords)
   (send *robot* :fix-leg-to-coords (send (send (send *robot* :foot-midcoords) :copy-worldcoords) :transform coords))
   )
-
+(defun show-pose-full (arm i)
+  (show-pose arm i)
+  (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0 ))
+  (send *irtviewer* :draw-objects)
+  )
 (defun show-pose (arm i)
   (let ((foot-coords (send *robot* :foot-midcoords)))
     (progn (send *robot* :angle-vector (elt *ik-result* i)) (send *robot* :fix-leg-to-coords foot-coords))
@@ -699,7 +703,7 @@
                                            :pose_stamped (ros::coords->tf-pose-stamped (send *cube* :worldcoords) "/ground"))))
     (setq res (ros::service-call "/transformable_server_sample/set_dimensions"
                                  (instance jsk_interactive_marker::SetMarkerDimensionsRequest :init
-                                           :dimensions 
+                                           :dimensions
                                            (instance jsk_interactive_marker::MarkerDimensions :init :x (* (elt dim 0) 0.0012) :y (* (elt dim 1) 0.0012) :z (* (elt dim 2) 0.0014)))))
     )
   )
@@ -711,6 +715,22 @@
   (setq *cube* (make-cube 100 50 20))
   (send *cube* :newcoords (make-coords :pos (float-vector 500 -0 860) :rpy (list (/ pi 4) 0 0)))
   (objects (list *cube* *table* *hrp2jsknts*))
+  )
+
+(defun load-from-file
+  ()
+  (unix::system "cp ~/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae; rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae; rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae ~/.ros/tmp_model.l")
+  (load "~/.ros/tmp_model.l")
+  (load "~/.ros/angle-list.l")
+  (tmp-world)
+  (send *tmp-world* :newcoords (send trans-ground->kinfu :copy-worldcoords))
+  (objects (list *robot* *tmp-world*))
+  (reset-manip-pose-with-bend)
+  (ros::subscribe "/rave_grasp_result" openrave_test::RaveGraspArray #'callback)
+  (defun get-trans (msg)
+    trans-ground->kinfu
+    )
+  ;; do ros spin once
   )
 
 (ros::roseus "sample-grasp-node")
