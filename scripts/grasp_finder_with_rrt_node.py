@@ -31,7 +31,7 @@ OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
 linelist = None
 linelist_temp = None
 contactlist = None
-only_read = False
+only_read = True
 box_minus = None
 
 def change_frame(box):
@@ -327,8 +327,9 @@ def try_grasp():
         rospy.loginfo("right hand")
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     if not debug_mode:
-        pass
-        # env.SetViewer('qtcoin')
+        # pass
+        env.SetViewer('qtcoin')
+        env.GetViewer().SetCamera(numpy.eye(4))
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
@@ -350,6 +351,7 @@ def try_grasp():
     # show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
+    float_array_msg_list = []
     len_approach = len(approachrays)
     print "len %d %d" % (len_approach,  approachrays.shape[0])
     try_num = 0
@@ -371,7 +373,6 @@ def try_grasp():
     print ("elapsed_time for trial:{0}".format(elapsed_time)) + "[sec]"
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
-    float_array_msg_list = []
     # pose_array_msg.header.frame_id = "ground"
     print "Finished"
     print "Num!"
@@ -400,6 +401,9 @@ def try_grasp():
     for success_grasp_list, full_success_grasp_list in [
             (half_success_grasp_list, full_half_success_grasp_list), ## for debug
             (success_grasp_list, full_success_grasp_list)]:
+        pose_array_msg = geometry_msgs.msg.PoseArray()
+        com_array_msg = geometry_msgs.msg.PoseArray()
+        float_array_msg_list = []
         for grasp_node in success_grasp_list:
             contact_num = 0
             ave_x = ave_y = ave_z = 0
@@ -443,7 +447,7 @@ def try_grasp():
     grasp_array_pub.publish(rave_grasp_array_msg)
     print "len full %d" % len(full_success_grasp_list)
     print "len half %d" % len(full_half_success_grasp_list)
-    # show_result(full_success_grasp_list, grasper, env)
+    show_result(full_success_grasp_list, grasper, env)
     # gmodel.generate(*gmodel.autogenerateparams())
     ## respected to frame, kinfu outputs with camera frame.
 
@@ -557,6 +561,52 @@ def show_box(box, env):
                     for d3_a in (d3, -d3):
                         linelist_box.append(env.drawlinelist(points=numpy.array([pos + d2_a + d3_a - d1,  pos + d2_a + d3_a + d1]), linewidth=10, colors=numpy.array((0, 1, 0, 1))))
 
+def show_model():
+    # pickle
+    left_hand = rospy.get_param("~left_hand", False)
+    robot_name = rospy.get_param("~robot_name", "hrp2")
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH)
+    box = pickle.load(f)
+    f.close()
+    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
+    box_minus = pickle.load(f)
+    f.close()
+    if left_hand:
+        rospy.loginfo("left hand")
+    else:
+        rospy.loginfo("right hand")
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
+    env.SetViewer('qtcoin')
+    env.GetViewer().SetCamera(numpy.eye(4))
+
+def show():
+    left_hand = rospy.get_param("~left_hand", False)
+    robot_name = rospy.get_param("~robot_name", "hrp2")
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH)
+    box = pickle.load(f)
+    f.close()
+    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
+    box_minus = pickle.load(f)
+    f.close()
+    if left_hand:
+        rospy.loginfo("left hand")
+    else:
+        rospy.loginfo("right hand")
+    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
+    env.SetViewer('qtcoin')
+    show_box(box, env)
+    camera_pos = [box.pose.position.x, box.pose.position.y, box.pose.position.z - 0.8, 0]
+    print camera_pos
+    ex = [1.0, 0.0, 0.0, 0.0]
+    ey = [0.0, 1.0, 0.0, 0.0]
+    ez = [0.0, 0.0, 1.0, 0.0]
+    ew = [0.0, 0.0, 0.0, 0.0]
+    camera_pose = numpy.array([ex, ey, ez, camera_pos])
+    camera_pose = camera_pose.transpose()
+    env.GetViewer().SetCamera(camera_pose)
+    env.GetViewer().SetSize(2500, 1600)
+    time.sleep(2.0)
+    check = commands.getoutput("gnome-screenshot --file=tmp.png")
 if __name__ == '__main__':
     grasp_finder()
     rospy.spin()

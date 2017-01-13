@@ -348,7 +348,7 @@
 
 (defun show-grasp
   ()
-  (dotimes (i (length lst)) (send (elt lst i) :draw-on :flush t :color (float-vector 1 0 0)))
+  (dotimes (i (length lst)) (send (elt lst i) :draw-on :flush t :color (float-vector 1 0 0) :width 7))
   )
 
 (defun reset-manip-pose-with-bend
