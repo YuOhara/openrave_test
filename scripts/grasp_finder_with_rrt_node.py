@@ -31,7 +31,7 @@ OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
 linelist = None
 linelist_temp = None
 contactlist = None
-only_read = True
+only_read = False
 box_minus = None
 
 def change_frame(box):
@@ -53,6 +53,36 @@ def change_frame(box):
         return
 
 
+def convert_mesh(box, box_minus):
+    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh.ply _output_file_name:=%s/.ros/mesh0.ply" % (box.dimensions.x+1.00, box.dimensions.y+1.00, box.dimensions.z+ 1.00, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
+    print check
+    check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh.dae")
+    print check
+    check = commands.getoutput("cp ~/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
+    print check
+    check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
+    print check
+    check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae %s/.ros/tmp_model.l" % HOME_PATH)
+    # print check
+    ## estimated
+    check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model_estimated.urdf $(rospack find openrave_test)/scripts/tmp_model_estimated.dae")
+    print check
+    check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae %s/.ros/tmp_model_estimated.l" % HOME_PATH)
+    # print check
+    # pickle
+    f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
+    pickle.dump(box, f)
+    f.close()
+    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH, 'w')
+    pickle.dump(box_minus, f)
+    f.close()
+    check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh_estimated.ply _output_file_name:=%s/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
+    print check
+    check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
+    print check
+    check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh0.dae")
+    print check
+
 def callback(box):
     print "callback start!"
     change_frame(box)
@@ -62,39 +92,12 @@ def callback(box):
     left_hand = rospy.get_param("~left_hand", False)
     robot_name = rospy.get_param("~robot_name", "hrp2")
     if not left_hand:
-        start = time.time()
         rospy.loginfo("save mesh start")
+        start = time.time()
         rospy.ServiceProxy('/kinfu/save_mesh', Empty)()
         rospy.loginfo("save mesh end")
         ## change ply -> dae
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh.ply _output_file_name:=%s/.ros/mesh0.ply" % (box.dimensions.x+1.00, box.dimensions.y+1.00, box.dimensions.z+ 1.00, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
-        print check
-        check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh.dae")
-        print check
-        check = commands.getoutput("cp ~/.ros/mesh.dae $(rospack find openrave_test)/scripts/mesh.dae")
-        print check
-        check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model.urdf $(rospack find openrave_test)/scripts/tmp_model.dae")
-        print check
-        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model.dae %s/.ros/tmp_model.l" % HOME_PATH)
-        # print check
-        ## estimated
-        check = commands.getoutput("rosrun collada_urdf_jsk_patch urdf_to_collada $(rospack find openrave_test)/scripts/tmp_model_estimated.urdf $(rospack find openrave_test)/scripts/tmp_model_estimated.dae")
-        print check
-        check = commands.getoutput("rosrun euscollada collada2eus $(rospack find openrave_test)/scripts/tmp_model_estimated.dae %s/.ros/tmp_model_estimated.l" % HOME_PATH)
-        # print check
-        # pickle
-        f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
-        pickle.dump(box, f)
-        f.close()
-        f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH, 'w')
-        pickle.dump(box_minus, f)
-        f.close()
-        check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh_estimated.ply _output_file_name:=%s/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
-        print check
-        check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
-        print check
-        check = commands.getoutput("meshlabserver -i ~/.ros/mesh0.ply -o ~/.ros/mesh0.dae")
-        print check
+        convert_mesh(box, box_minus)
         elapsed_time = time.time() - start
         print ("elapsed_time for convert:{0}".format(elapsed_time)) + "[sec]"
     else:
@@ -173,6 +176,7 @@ def load_and_save_trial_single(index, formatstring):
     check = commands.getoutput("ipython `rospack find openrave_test`/scripts/grasp_finder_with_load_save.py %s%d" % (formatstring, index))
 
 def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name):
+
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper=initialize_env(left_hand, robot_name)
     # collisionChecker = RaveCreateCollisionChecker(env,'fcl')
     # env.SetCollisionChecker(collisionChecker)
@@ -323,15 +327,17 @@ def try_grasp():
     f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
     box_minus = pickle.load(f)
     f.close()
+    if True:
+        convert_mesh(box, box_minus)
     if left_hand:
         rospy.loginfo("left hand")
     else:
         rospy.loginfo("right hand")
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     if not debug_mode:
-        # pass
-        env.SetViewer('qtcoin')
-        set_camera_pos(env, box)
+        pass
+        # env.SetViewer('qtcoin')
+        # set_camera_pos(env, box)
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
