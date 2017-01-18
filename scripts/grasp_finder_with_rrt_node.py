@@ -177,9 +177,10 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     # collisionChecker = RaveCreateCollisionChecker(env,'fcl')
     # env.SetCollisionChecker(collisionChecker)
     # debug
-    # env.SetViewer('qtcoin')
-    # show_approachrays(approachrays, env)
-    # show_box(box, env)
+    if debug_mode:
+        env.SetViewer('qtcoin')
+        show_approachrays(approachrays, env)
+        # show_box(box, env)
 
     print "len_approach %d" % len_approach
     final,traj = taskmanip.ReleaseFingers(execute=False,outputfinal=True)
@@ -198,6 +199,7 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     offset_rolls_size = len(rolls)
     translationstepmult = 0.01
     finestep = 0.0003
+    # approachrays = approachrays[100:] # for debug, skipping
     for approachray in approachrays:
         for standoff in standoffs:
             pose_msg = Pose()
@@ -221,12 +223,12 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
                     try:
                         target1.Enable(True)
                         target2.Enable(False)
-                        direction = - approachray[3:6] # maybe + is true!
+                        direction =  approachray[3:6] # maybe + is true!
                         position = approachray[0:3]
                         ## debug
                         if debug_mode:
                             global linelist_temp
-                            linelist_temp = env.drawlinelist(points=numpy.array([position, position - 0.03 * direction]), linewidth=40, colors=numpy.array((0, 0, 1, 1)))
+                            linelist_temp = env.drawlinelist(points=numpy.array([position, position - 0.05 * direction]), linewidth=7, colors=numpy.array((0, 0, 1, 1)))
                             # linelist_temp = env.drawlinelist(points=numpy.array([[0, 0, 0], [0, 0, 1]]), linewidth=10, colors=numpy.array((1, 0, 0, 1))) # example
                             print "rolls_before"
                             print direction, roll, position
@@ -329,7 +331,7 @@ def try_grasp():
     if not debug_mode:
         # pass
         env.SetViewer('qtcoin')
-        env.GetViewer().SetCamera(numpy.eye(4))
+        set_camera_pos(env, box)
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
@@ -363,9 +365,9 @@ def try_grasp():
     format_string = "left" if left_hand else "right"
     start = time.time()
     if debug_mode:
-        env.SetViewer('qtcoin')
-        show_approachrays(approachrays, env)
-        show_box(box, env)
+        # env.SetViewer('qtcoin')
+        # show_approachrays(approachrays, env)
+        # show_box(box, env)
         trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name) #debug
     else:
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
@@ -458,7 +460,7 @@ def show_result(grasp_list_array, grasper, env):
             grasper.robot.SetDOFValues(grasp_list[2][0])
             drawContacts(grasp_list[0], grasper, env)
             env.UpdatePublishedBodies()
-            raw_input('press any key to continue:(1) ')
+            # raw_input('press any key to continue:(1) ')
             target2 = env.GetKinBody('mug2')
             target2.SetVisible(False)
             env.UpdatePublishedBodies()
@@ -541,7 +543,7 @@ def show_approachrays(approachrays, env): ## todo
     gapproachrays = numpy.c_[approachrays[:,0:3],approachrays[:,3:6]]
     N = approachrays.shape[0]
     global linelist
-    linelist = [env.plot3(points=gapproachrays[:,0:3],pointsize=5,colors=numpy.array((1,0,0))), env.drawlinelist(points=numpy.reshape(numpy.c_[gapproachrays[:,0:3],gapproachrays[:,0:3]-0.0035*gapproachrays[:,3:6]],(2*N,3)),linewidth=500,colors=numpy.array((1,0,0,1)))]
+    linelist = [env.plot3(points=gapproachrays[:,0:3],pointsize=5,colors=numpy.array((1,0,0))), env.drawlinelist(points=numpy.reshape(numpy.c_[gapproachrays[:,0:3],gapproachrays[:,0:3]-0.0035*gapproachrays[:,3:6]],(2*N,3)),linewidth=2,colors=numpy.array((1,0,0,1)))]
     env.UpdatePublishedBodies()
 
 def show_box(box, env):
@@ -561,24 +563,6 @@ def show_box(box, env):
                     for d3_a in (d3, -d3):
                         linelist_box.append(env.drawlinelist(points=numpy.array([pos + d2_a + d3_a - d1,  pos + d2_a + d3_a + d1]), linewidth=10, colors=numpy.array((0, 1, 0, 1))))
 
-def show_model():
-    # pickle
-    left_hand = rospy.get_param("~left_hand", False)
-    robot_name = rospy.get_param("~robot_name", "hrp2")
-    f = open('%s/.ros/temp_box.txt' % HOME_PATH)
-    box = pickle.load(f)
-    f.close()
-    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
-    box_minus = pickle.load(f)
-    f.close()
-    if left_hand:
-        rospy.loginfo("left hand")
-    else:
-        rospy.loginfo("right hand")
-    env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
-    env.SetViewer('qtcoin')
-    env.GetViewer().SetCamera(numpy.eye(4))
-
 def show():
     left_hand = rospy.get_param("~left_hand", False)
     robot_name = rospy.get_param("~robot_name", "hrp2")
@@ -595,6 +579,12 @@ def show():
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     env.SetViewer('qtcoin')
     show_box(box, env)
+    env.GetViewer().SetSize(2500, 1600)
+    time.sleep(2.0)
+    set_camera_pos(env, box)
+    check = commands.getoutput("gnome-screenshot --file=tmp.png")
+
+def set_camera_pos(env, box):
     camera_pos = [box.pose.position.x, box.pose.position.y, box.pose.position.z - 0.8, 0]
     print camera_pos
     ex = [1.0, 0.0, 0.0, 0.0]
@@ -604,9 +594,7 @@ def show():
     camera_pose = numpy.array([ex, ey, ez, camera_pos])
     camera_pose = camera_pose.transpose()
     env.GetViewer().SetCamera(camera_pose)
-    env.GetViewer().SetSize(2500, 1600)
-    time.sleep(2.0)
-    check = commands.getoutput("gnome-screenshot --file=tmp.png")
+
 if __name__ == '__main__':
     grasp_finder()
     rospy.spin()
