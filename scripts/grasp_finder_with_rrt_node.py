@@ -201,8 +201,8 @@ def trial(approachrays, success_grasp_list, half_success_grasp_list, len_approac
     standoffs_size = len(standoffs)
     offset_rolls = [0, numpy.pi / 2.0]
     offset_rolls_size = len(rolls)
-    translationstepmult = 0.01
-    finestep = 0.0003
+    translationstepmult = 0.003
+    finestep = 0.0001
     # approachrays = approachrays[100:] # for debug, skipping
     for approachray in approachrays:
         for standoff in standoffs:
