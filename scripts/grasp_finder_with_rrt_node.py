@@ -335,9 +335,9 @@ def try_grasp():
         rospy.loginfo("right hand")
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     if not debug_mode:
-        pass
-        # env.SetViewer('qtcoin')
-        # set_camera_pos(env, box)
+        #pass
+        env.SetViewer('qtcoin')
+        set_camera_pos(env, box)
     target2.Enable(False)
     target2.SetVisible(True)
     approachrays = return_box_approach_rays(gmodel, box)
@@ -461,6 +461,7 @@ def try_grasp():
 
 def show_result(grasp_list_array, grasper, env):
     if env.GetViewer() is not None:
+        count=0
         for grasp_list in grasp_list_array:
             grasper.robot.SetTransform(grasp_list[2][1])
             grasper.robot.SetDOFValues(grasp_list[2][0])
@@ -470,14 +471,14 @@ def show_result(grasp_list_array, grasper, env):
             target2 = env.GetKinBody('mug2')
             target2.SetVisible(False)
             env.UpdatePublishedBodies()
-            raw_input('press any key to continue:(1.5) ')
+            raw_input('press any key to continue:(1.5) %d' % count)
             target2.SetVisible(True)
             grasper.robot.SetTransform(grasp_list[3][1])
             grasper.robot.SetDOFValues(grasp_list[3][0])
             drawContacts(grasp_list[1], grasper, env)
             env.UpdatePublishedBodies()
-            raw_input('press any key to continue:(2) ')
-
+            raw_input('press any key to continue:(2) %d' % count)
+            count = count + 1
 def drawContacts(contacts,grasper, env, conelength=0.07,transparency=0.5):
     if env.GetViewer() is not None:
         angs = numpy.linspace(0,2*numpy.pi,10)
@@ -582,25 +583,47 @@ def show():
         rospy.loginfo("left hand")
     else:
         rospy.loginfo("right hand")
+    convert_mesh(box, box_minus)
+    time.sleep(1.0)
     env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper = initialize_env(left_hand, robot_name)
     env.SetViewer('qtcoin')
-    show_box(box, env)
+    # show_box(box, env)
     env.GetViewer().SetSize(2500, 1600)
-    time.sleep(2.0)
+    # campos = numpy.array(
+    #     [[-0.03347427, 0.3277906, -0.94415719, 2.65348792],
+    #      [-0.54339552, 0.78688697, 0.29245546, 1.26281893],
+    #      [ 0.83880914,  0.52284052,  0.15177948,  0.16818094],
+    #      [ 0., 0., 0., 1.]])
+    # env.GetViewer().SetCamera(campos)
+    # env.UpdatePublishedBodies()
+    # time.sleep(1.0)
     set_camera_pos(env, box)
     check = commands.getoutput("gnome-screenshot --file=tmp.png")
+    target2.SetVisible(False)
+    env.UpdatePublishedBodies()
+    time.sleep(2.5)
+    env.GetViewer().SetCamera(campos)
+    env.UpdatePublishedBodies()
+    time.sleep(1.0)
+    env.UpdatePublishedBodies()
+    time.sleep(2.5)
+    check = commands.getoutput("gnome-screenshot --file=tmp2.png")
 
 def set_camera_pos(env, box):
     camera_pos = [box.pose.position.x, box.pose.position.y, box.pose.position.z - 0.8, 0]
+    # camera_pos = [box.pose.position.x - 0.4, box.pose.position.y, box.pose.position.z, 0]
     print camera_pos
     ex = [1.0, 0.0, 0.0, 0.0]
     ey = [0.0, 1.0, 0.0, 0.0]
     ez = [0.0, 0.0, 1.0, 0.0]
     ew = [0.0, 0.0, 0.0, 0.0]
     camera_pose = numpy.array([ex, ey, ez, camera_pos])
+    # camera_pose = numpy.array([ez, ey, ez, camera_pos])
     camera_pose = camera_pose.transpose()
     env.GetViewer().SetCamera(camera_pose)
-
+    # while True:
+    #     raw_input("hoge")
+    #     print env.GetViewer().GetCameraTransform()
 if __name__ == '__main__':
     grasp_finder()
     rospy.spin()
