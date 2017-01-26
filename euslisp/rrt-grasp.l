@@ -113,11 +113,14 @@
   (setq *ik-result* nil)
   (setq *hand-result* nil)
   (let ((foot-coords (send *robot* :foot-midcoords))
-        (angle-vec *tmp*))
+        (angle-vec
+         ;; *tmp*
+         (send *robot* :angle-vector)
+                   ))
     (dotimes (i (length lst))
       ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
       (setq ik-result (fullbody-ik2 (elt lst i)))
-      (if (and ik-result (send *robot* :larm :move-end-pos (float-vector 50 -50 0)) (send *robot* :arms :move-end-pos (float-vector 0 0 70) :world))
+      (if (and ik-result (send *robot* :larm :move-end-pos (float-vector 50 -50 0)) (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world))
           (progn
             (push ik-result *ik-result*)
             (push (coerce (mapcar #'rad2deg (coerce (send (elt *finger* i) :data) cons)) float-vector) *hand-result*)
@@ -387,14 +390,18 @@
   (open-hand arm)
   (show-hand arm 0)
   (setq *current* (send *robot* :angle-vector))
-  (send *robot* :reset-manip-pose)
-  (send *robot* :rarm :move-end-pos (float-vector 100 0 150))
-  (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
-  (send *ri* :wait-interpolation)
+  (if (equal arm :rarm)
+      (progn
+        (send *robot* :reset-manip-pose)
+        (send *robot* :rarm :move-end-pos (float-vector 100 0 150))
+        (send *ri* :angle-vector (send *robot* :angle-vector) 10000)
+        (send *ri* :wait-interpolation)
+        )
+    )
   (send *robot* :angle-vector *current*)
   (send *ri* :angle-vector (send *robot* :angle-vector) 20000)
   (send *ri* :wait-interpolation)
-  (if (send *robot* arm :move-end-pos (float-vector 50 (if (equal arm :rarm) 50 -50) 0 ))
+  (if (send *robot* arm :move-end-pos (float-vector 60 (if (equal arm :rarm) 60 -60) 0 ))
       (progn
         (look-at-arm arm)
         (setq robot-angle-vector (send *robot* :angle-vector))
@@ -405,15 +412,22 @@
         )
     (return)
     )
-  ; (close-hand-more arm)
+  ;; (send *robot* :hand :rarm :angle-vector #f(90.0 -30.0 0.0 10.0 -20.0 -20.0)) ;; thumb
+  ;; (send *robot* :hand arm :r_thumbcm_p :joint-angle -30)
+  ;; (close-hand-more arm)
   (if (equal arm :rarm)
       (progn
-        (hand-model2real)
+        (if
+            (y-or-n-p "first grasp starts, ok?")
+            (hand-model2real)
+          (return))
         ;;(try-grasp arm)
         (if
-            (fullbody-move-end-pos :rarm 0 0 70 :world)
-            ;(send *robot* arm :move-end-pos (float-vector 0 0 70) :world)
+            (and (fullbody-move-end-pos :rarm 0 0 120 :world) (send *robot* :rarm :move-end-rot 0 :x))
+
+                                        ;(send *robot* arm :move-end-pos (float-vector 0 0 70) :world)
             (progn
+              
               (if (y-or-n-p "try move?")
                   (try-move (send *robot* :angle-vector))
                 (return)
@@ -464,15 +478,17 @@
 (defun try-move
   (angle-vector)
   (unix::system "rosnode kill /save_image_for_moseg") ;; sometimes no res? also need to reset index of image_savere index
+  (unix::system "rosnode kill /kinfu") ;; for tusin
   (call-empty "save_before")
   (unix::usleep 1000000)
   (setq *tmp* (send *ri* :state :reference-vector))
   (send *ri* :angle-vector angle-vector 20000)
-  (dotimes (i 10) ;; 20 + 2 for avoid miss
-    (unix::usleep 2000000)
+  (dotimes (i 22) ;; 20 + 2 for avoid miss
+    (unix::usleep 1000000)
     (call-image-save)
     )
   (send *ri* :wait-interpolation)
+  (call-moseg)
   ;; (send *ri* :angle-vector *tmp* 20000)
   ;; (dotimes (i 12) ;; 20 + 2 for avoid miss
   ;;   (unix::usleep 2000000)
@@ -644,6 +660,13 @@
   (progn
     (unix::sleep 2)
     (reset-manip-pose-with-bend) (send *ri* :angle-vector (send *robot* :angle-vector) 10000) (send *ri* :wait-interpolation) (go-pos 0 0.3 0) (go-pos 0.1 0 0) (go-pos 0 -0.6 0) (go-pos -0.12 0 0) (go-pos 0 0.3 0)
+    )
+  )
+
+(defun look-around4 ()
+  (progn
+    (unix::sleep 2)
+    (reset-manip-pose-with-bend :head 35) (send *ri* :angle-vector (send *robot* :angle-vector) 10000) (send *ri* :wait-interpolation) (go-pos 0 0.2 0) (go-pos 0 -0.4 0) (go-pos 0 0.2 0)
     )
   )
 
