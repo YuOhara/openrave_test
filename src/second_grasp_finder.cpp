@@ -318,7 +318,7 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
   cv::Point2d hand_before, hand_after;
   int hand_label = getLabel(getTransform(cam_info_->header.frame_id, "rarm_end_coords").translation() ,mTracks, nullTracks, hand_trans, hand_before, hand_after);
   ROS_INFO("label! %d", hand_label);
-  int back_label = 0; // may be 0
+  int back_label = -1; // may be 0
   geometry_msgs::PoseArray second_grasp_pose_array;
   geometry_msgs::PoseArray second_grasp_pose_array_debug;
   // get transform
@@ -348,23 +348,34 @@ bool loadMovementFile(openrave_test::SecondGrasp::Request  &req,
       // Eigen::Affine3d local_trans = (offset * output);
 
       Eigen::Affine3d local_trans = Eigen::Affine3d::Identity();
-      if (cloud_before && cloud_after) {
-        float resx, resy, resz;
-        bool success_flug = true;
-        if (!getTranslationWithPoint(before_point, cloud_before, resx, resy, resz)){
-          success_flug = false;
-        }
-        float resx_a, resy_a, resz_a;
-        if (!getTranslationWithPoint(after_point, cloud_after, resx_a, resy_a, resz_a)){
-          success_flug = false;
-        }
-        if (success_flug){
-          local_trans = Eigen::Translation3d(resx_a - resx, resy_a - resy, resz_a - resz) * local_trans;
-        }
-        else {
-          ROS_INFO("cannot get point data");
-        }
-      }
+
+      // before cloud
+      // if (cloud_before && cloud_after) {
+      //   float resx, resy, resz;
+      //   bool success_flug = true;
+      //   if (!getTranslationWithPoint(before_point, cloud_before, resx, resy, resz)){
+      //     success_flug = false;
+      //   }
+      //   float resx_a, resy_a, resz_a;
+      //   if (!getTranslationWithPoint(after_point, cloud_after, resx_a, resy_a, resz_a)){
+      //     success_flug = false;
+      //   }
+      //   if (success_flug){
+      //     local_trans = Eigen::Translation3d(resx_a - resx, resy_a - resy, resz_a - resz) * local_trans;
+      //   }
+      //   else {
+      //     ROS_INFO("cannot get point data");
+      //   }
+      // }
+      // after cloud
+      // before ray
+      cv::Point3d ray_before = model_.projectPixelTo3dRay(before_point);
+      cv::Point3d ray_after = model_.projectPixelTo3dRay(after_point);
+      ray_before = grasp_cam.z() * ray_before;
+      ray_after = grasp_cam.z() * ray_after;
+      local_trans = Eigen::Translation3d(ray_after.x - ray_before.x, ray_after.y - ray_before.y, 0);
+      // after ray
+
       ROS_INFO("fuga %f %f %f", local_trans.translation().x(), local_trans.translation().y(), local_trans.translation().z());
       geometry_msgs::Pose grasp_pose;
       tf::poseEigenToMsg(transform.inverse()  * local_trans * (transform * grasp_array_odom[i])

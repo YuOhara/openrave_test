@@ -36,6 +36,7 @@ box_minus = None
 
 def change_frame(box):
     listener = tf.TransformListener()
+    print "frame %s" % box.header.frame_id
     try:
         now = rospy.Time(0)
         listener.waitForTransform(box.header.frame_id, 'kinfu_origin', now, rospy.Duration(2.0))
@@ -105,6 +106,7 @@ def callback(box):
         while not os.path.exists('%s/.ros/temp_box.txt' % HOME_PATH):
             rospy.loginfo("wait for right")
             time.sleep(10)
+        time.sleep(30)
     try_grasp()
 
 def callback_minus(box):
@@ -149,7 +151,7 @@ def initialize_env(left_hand, robot_name):
     return env, hand1, hand2, robot, target1, target2, taskmanip, manip, manipulatordirection, gmodel, grasper
 
 def load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, formatstring):
-    thread_num = 40
+    thread_num = 20
     ps = []
     if not only_read:
         for i in range(thread_num):
@@ -356,7 +358,7 @@ def try_grasp():
     #     target0.Enable(False)
     #     target0.SetVisible(False)
     #     approachrays = return_box_approach_rays(gmodel, box)
-    # show_approachrays(approachrays, env)
+    show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
     float_array_msg_list = []
@@ -379,6 +381,7 @@ def try_grasp():
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
     elapsed_time = time.time() - start
     print ("elapsed_time for trial:{0}".format(elapsed_time)) + "[sec]"
+    print box.header
     pose_array_msg.header = box.header
     pose_array_msg.header.stamp = rospy.Time(0)
     # pose_array_msg.header.frame_id = "ground"
@@ -407,11 +410,11 @@ def try_grasp():
     full_success_grasp_list = []
     full_half_success_grasp_list = []
     for success_grasp_list, full_success_grasp_list in [
-            (half_success_grasp_list, full_half_success_grasp_list), ## for debug
+            # (half_success_grasp_list, full_half_success_grasp_list), ## for debug
             (success_grasp_list, full_success_grasp_list)]:
-        pose_array_msg = geometry_msgs.msg.PoseArray()
-        com_array_msg = geometry_msgs.msg.PoseArray()
-        float_array_msg_list = []
+        # pose_array_msg = geometry_msgs.msg.PoseArray() ## for debug
+        # com_array_msg = geometry_msgs.msg.PoseArray() ## for debug
+        # float_array_msg_list = [] ## for debug
         for grasp_node in success_grasp_list:
             contact_num = 0
             ave_x = ave_y = ave_z = 0
@@ -439,18 +442,19 @@ def try_grasp():
                 pass
             else:
                 success_flug = False
+            success_flug = True # ! only for 3kyaku etc
             if success_flug:
                 com_array_msg.poses.append(temp_pose)
                 grasper.robot.SetTransform(grasp_node[2][1])
                 pose_array_msg.poses.append(matrix2pose(robot.GetTransform()))
                 float_array_msg_list.append(Float32MultiArray(data=grasp_node[2][0]))
                 full_success_grasp_list.append(grasp_node)
-    com_array_msg.header = pose_array_msg.header
+    com_array_msg.header = box.header
     com_array_pub.publish(com_array_msg)
     pose_array_pub.publish(pose_array_msg)
     rave_grasp_array_msg = RaveGraspArray()
     rave_grasp_array_msg.pose_array = pose_array_msg
-    rave_grasp_array_msg.header = pose_array_msg.header
+    rave_grasp_array_msg.header = box.header
     rave_grasp_array_msg.grasp_array = float_array_msg_list
     grasp_array_pub.publish(rave_grasp_array_msg)
     print "len full %d" % len(full_success_grasp_list)

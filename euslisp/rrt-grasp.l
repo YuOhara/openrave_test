@@ -79,7 +79,10 @@
     )
   )
 (defun look-at-arm (arm)
-  (send *robot* :look-at-target (send (send *robot* arm :end-coords :copy-worldcoords) :translate (float-vector 100 (if (equal arm :rarm) 50 -50) 0)))
+  (send *robot* :look-at-target
+        (send
+         (send (send *robot* arm :end-coords :copy-worldcoords) :translate (float-vector 100 (if (equal arm :rarm) 50 -50) 0)) :translate (float-vector 0 (if (equal arm :rarm) 100 -100) 0) :world)
+        )
   )
 (defun show-hand (arm i)
   (send *robot* :hand arm :angle-vector 
@@ -115,14 +118,30 @@
   (let ((foot-coords (send *robot* :foot-midcoords))
         (angle-vec
          ;; *tmp*
-         (send *robot* :angle-vector)
+         (send *ri* :state :reference-vector)
+         ;; (send *robot* :angle-vector)
                    ))
     (dotimes (i (length lst))
       ;; (setq ik-result (send *robot* :rarm :inverse-kinematics pose :debug-view :no-message))
-      (setq ik-result (fullbody-ik2 (elt lst i)))
-      (if (and ik-result (send *robot* :larm :move-end-pos (float-vector 50 -50 0)) (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world))
+      (setq ik-result (fullbody-ik2 
+                       (send
+                        (send
+                         (elt lst i)
+                         :copy-worldcoords)
+                        :translate (float-vector 50 -50 0) :local
+                        )
+                       ))
+      (if (and ik-result
+               (send *robot* :larm :move-end-pos (float-vector -50 50 0)) ;; back offset
+               ;; (send *robot* :larm :move-end-pos (float-vector 50 -50 0))
+               ;; (send *robot* :arms :move-end-pos (float-vector 0 0 100) :world)
+               )
           (progn
-            (push ik-result *ik-result*)
+            (push
+                  ;; *ik-result*
+                  (send *robot* :angle-vector) ;; back pose
+                  *ik-result*
+                  )
             (push (coerce (mapcar #'rad2deg (coerce (send (elt *finger* i) :data) cons)) float-vector) *hand-result*)
             )
         )
@@ -383,12 +402,12 @@
   (close-hand)
   )
 
-(defun do-motion2 (arm)
+(defun do-motion2 (arm &key (num-index 0))
   ;; (if (equal arm :rarm) 
   ;;     (go-pos-exec)
   ;;     )
   (open-hand arm)
-  (show-hand arm 0)
+  (show-hand arm num-index)
   (setq *current* (send *robot* :angle-vector))
   (if (equal arm :rarm)
       (progn
@@ -414,7 +433,7 @@
     )
   ;; (send *robot* :hand :rarm :angle-vector #f(90.0 -30.0 0.0 10.0 -20.0 -20.0)) ;; thumb
   ;; (send *robot* :hand arm :r_thumbcm_p :joint-angle -30)
-  ;; (close-hand-more arm)
+  (close-hand-more arm)
   (if (equal arm :rarm)
       (progn
         (if
@@ -423,11 +442,10 @@
           (return))
         ;;(try-grasp arm)
         (if
-            (and (fullbody-move-end-pos :rarm 0 0 120 :world) (send *robot* :rarm :move-end-rot 0 :x))
+            (and (fullbody-move-end-pos :rarm 0 150 0 :world) (send *robot* :rarm :move-end-rot 0 :x))
 
                                         ;(send *robot* arm :move-end-pos (float-vector 0 0 70) :world)
             (progn
-              
               (if (y-or-n-p "try move?")
                   (try-move (send *robot* :angle-vector))
                 (return)
@@ -483,22 +501,25 @@
   (unix::usleep 1000000)
   (setq *tmp* (send *ri* :state :reference-vector))
   (send *ri* :angle-vector angle-vector 20000)
-  (dotimes (i 22) ;; 20 + 2 for avoid miss
+  (dotimes (i 24) ;; 20 + 4 for avoid miss
     (unix::usleep 1000000)
     (call-image-save)
     )
   (send *ri* :wait-interpolation)
-  (call-moseg)
-  ;; (send *ri* :angle-vector *tmp* 20000)
-  ;; (dotimes (i 12) ;; 20 + 2 for avoid miss
+  ;; (if (y-or-n-p "down?")
+  ;;     (setq hoge 1)
+  ;;   (return)
+  ;;   )
+  ;; (send *ri* :angle-vector *tmp* 10000)
+  ;; (dotimes (i 14) ;; 20 + 2 for avoid miss
   ;;   (unix::usleep 2000000)
   ;;   (call-image-save)
   ;;   )
-  ;; (call-empty "save_after")
-  ;; ;; save bmf file
-  ;; (save-bmf-file)
-  ;; ;; call moseg
-  ;; (call-moseg)
+  (call-empty "save_after")
+  ;; save bmf file
+  (save-bmf-file)
+  ;; call moseg
+  (call-moseg)
   )
 (defun call-empty
   (name)
@@ -638,10 +659,22 @@
   (unix::system (format nil "cp ~~/.ros/left00*.jpg $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/" direc))
   (unix::system (format nil "mogrify -format ppm $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/left*" direc))
   (unix::system (format nil "rm -rf $(rospack find openrave_test)/moseg/TrainingSet/Data/~a/FlowFiles" direc))
-  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg ~a ~a ~a 4 20" direc start stop))
-  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg ~a/image.ppm OchsBroxMalik4_all_0000020.00/~a/Tracks~a.dat -1 OchsBroxMalik4_all_0000020.00/~a/DenseSegmentation" direc direc stop direc))
+  (unix::system (format nil "cd $(rospack find openrave_test)/moseg; $(rospack find openrave_test)/moseg/MoSeg $(rospack find openrave_test)/moseg/filestructureTrainingSet.cfg ~a ~a ~a 4 20 &" direc start stop))
+  ;; (unix::system (format nil "cd $(rospack find openrave_test)/moseg; ./dens100gpu filestructureTrainingSetDensify.cfg ~a/image.ppm OchsBroxMalik4_all_0000020.00/~a/Tracks~a.dat -1 OchsBroxMalik4_all_0000020.00/~a/DenseSegmentation" direc direc stop direc))
   )
 
+
+(defun set-ref ()
+  (let ((force-vector (send *ri* :stare :force-vector)))
+    (format t "force ~a ~a" (elt force-vector 3) (elt force-vector 3))
+    (if
+        (y-or-n-p "first grasp starts, ok?")
+        (hand-model2real)
+          (return))
+    (send *ri* :set-ref-force (elt force-vector 3) :rarm)
+    (send *ri* :set-ref-force (elt force-vector 4) :larm)
+    )
+  )
 
 (defun look-around1 ()
   (progn 
@@ -666,7 +699,7 @@
 (defun look-around4 ()
   (progn
     (unix::sleep 2)
-    (reset-manip-pose-with-bend :head 35) (send *ri* :angle-vector (send *robot* :angle-vector) 10000) (send *ri* :wait-interpolation) (go-pos 0 0.2 0) (go-pos 0 -0.4 0) (go-pos 0 0.2 0)
+    (reset-manip-pose-with-bend :head 40) (send *ri* :angle-vector (send *robot* :angle-vector) 10000) (send *ri* :wait-interpolation) (go-pos 0 0.2 0) (go-pos 0 -0.4 0) (go-pos 0 0.2 0)
     )
   )
 
