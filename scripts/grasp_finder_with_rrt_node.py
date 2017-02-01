@@ -31,7 +31,7 @@ OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
 linelist = None
 linelist_temp = None
 contactlist = None
-only_read = True
+only_read = False
 box_minus = None
 
 def change_frame(box):
@@ -74,9 +74,10 @@ def convert_mesh(box, box_minus):
     f = open('%s/.ros/temp_box.txt' % HOME_PATH, 'w')
     pickle.dump(box, f)
     f.close()
-    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH, 'w')
-    pickle.dump(box_minus, f)
-    f.close()
+    # f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH, 'w')
+    # pickle.dump(box_minus, f)
+    # f.close()
+    box_minus = None
     check = commands.getoutput("rosrun openrave_test ply_clipper _dim_x:=%f _dim_y:=%f _dim_z:=%f _p_x:=%f _p_y:=%f _p_z:=%f _r_x:=%f _r_y:=%f _r_z:=%f _r_w:=%f _input_file_name:=%s/.ros/mesh_estimated.ply _output_file_name:=%s/.ros/mesh_estimated2.ply" % (box.dimensions.x+0.15, box.dimensions.y+0.15, box.dimensions.z+ 0.02, box.pose.position.x, box.pose.position.y, box.pose.position.z, box.pose.orientation.x, box.pose.orientation.y, box.pose.orientation.z, box.pose.orientation.w, HOME_PATH, HOME_PATH))
     print check
     check = commands.getoutput("meshlabserver -i ~/.ros/mesh_estimated2.ply -o ~/.ros/mesh_estimated2.dae")
@@ -326,9 +327,11 @@ def try_grasp():
     f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
-    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
-    box_minus = pickle.load(f)
-    f.close()
+
+    # f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
+    # box_minus = pickle.load(f)
+    # f.close()
+    box_minus = None
     if True:
         convert_mesh(box, box_minus)
     if left_hand:
@@ -581,9 +584,10 @@ def show():
     f = open('%s/.ros/temp_box.txt' % HOME_PATH)
     box = pickle.load(f)
     f.close()
-    f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
-    box_minus = pickle.load(f)
-    f.close()
+    # f = open('%s/.ros/temp_box_minus.txt' % HOME_PATH)
+    # box_minus = pickle.load(f)
+    #f.close()
+    box_minus = None
     if left_hand:
         rospy.loginfo("left hand")
     else:

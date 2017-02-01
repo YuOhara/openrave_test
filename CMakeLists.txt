@@ -16,7 +16,6 @@ find_package(catkin REQUIRED
   rospack
   cv_bridge
   openrave
-  or_urdf
   )
 find_package(OpenMP)
 if(OPENMP_FOUND)
@@ -55,10 +54,9 @@ target_link_libraries(ply_clipper ${catkin_LIBRARIES})
 if("${OpenCV_VERSION}" VERSION_GREATER "2.9.9")  # >= 3.0.0
   add_executable(second_grasp_finder src/second_grasp_finder.cpp)
   target_link_libraries(second_grasp_finder ${catkin_LIBRARIES})
+  add_executable(test_opencv src/test_opencv.cpp)
+  target_link_libraries(test_opencv ${catkin_LIBRARIES})
 endif()
-
-add_executable(test_opencv src/test_opencv.cpp)
-target_link_libraries(test_opencv ${catkin_LIBRARIES})
 
 set(HRPSYS_ROS_BRIDGE_TUTORIALS_DIRECTORY ${hrpsys_ros_bridge_tutorials_SOURCE_PREFIX})
 set(OPENRAVE_TEST_DIRECTORY ${PROJECT_SOURCE_DIR})
