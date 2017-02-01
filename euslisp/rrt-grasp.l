@@ -665,15 +665,26 @@
 
 
 (defun set-ref ()
-  (let ((force-vector (send *ri* :stare :force-vector)))
-    (format t "force ~a ~a" (elt force-vector 3) (elt force-vector 3))
+  (let ((force-vector (send *ri* :state :absolute-force-vector)))
+    (format t "force ~a ~a \n" (elt force-vector 2) (elt force-vector 3))
     (if
-        (y-or-n-p "first grasp starts, ok?")
-        (hand-model2real)
-          (return))
-    (send *ri* :set-ref-force (elt force-vector 3) :rarm)
-    (send *ri* :set-ref-force (elt force-vector 4) :larm)
+        (y-or-n-p "force ok?")
+        (progn
+          (dotimes (i 11)
+            (send *ri* :set-ref-force (scale (/ i 10.0) (elt force-vector 2)) 1000 :rarm)
+            (unix::sleep 1)
+            (send *ri* :set-ref-force (scale (/ i 10.0) (elt force-vector 3)) 1000 :larm)
+            (unix::sleep 1)
+            )
+          )
+        (return))
     )
+  )
+
+(defun set-ref-zero ()
+  (send *ri* :set-ref-force (float-vector 0 0 0) 4000 :rarm)
+  (unix::sleep 4)
+  (send *ri* :set-ref-force (float-vector 0 0 0) 4000 :larm)
   )
 
 (defun look-around1 ()

@@ -15,6 +15,8 @@ find_package(catkin REQUIRED
   hrpsys_ros_bridge_tutorials
   rospack
   cv_bridge
+  openrave
+  or_urdf
   )
 find_package(OpenMP)
 if(OPENMP_FOUND)
