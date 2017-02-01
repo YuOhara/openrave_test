@@ -1,4 +1,4 @@
-for file in `\find ~/Result/ -maxdepth 1 -mindepth 1 -type d`; do
+for file in `\find ~/Result/ -maxdepth 1 -mindepth 1 -type d | sort`; do
     # TODO
     echo $file
     cp $file/* ~/.ros/ -r

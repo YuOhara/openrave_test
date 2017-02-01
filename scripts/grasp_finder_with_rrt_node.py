@@ -31,7 +31,7 @@ OPENRAVE_TEST_PATH = rospkg.RosPack().get_path("openrave_test")
 linelist = None
 linelist_temp = None
 contactlist = None
-only_read = False
+only_read = True
 box_minus = None
 
 def change_frame(box):
@@ -358,7 +358,7 @@ def try_grasp():
     #     target0.Enable(False)
     #     target0.SetVisible(False)
     #     approachrays = return_box_approach_rays(gmodel, box)
-    show_approachrays(approachrays, env)
+    # show_approachrays(approachrays, env)
     pose_array_msg = geometry_msgs.msg.PoseArray()
     com_array_msg = geometry_msgs.msg.PoseArray()
     float_array_msg_list = []
@@ -378,6 +378,7 @@ def try_grasp():
         # show_box(box, env)
         trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, left_hand, robot_name) #debug
     else:
+        show_box(box, env)
         load_and_save_trial(approachrays, success_grasp_list, half_success_grasp_list, len_approach, format_string)
     elapsed_time = time.time() - start
     print ("elapsed_time for trial:{0}".format(elapsed_time)) + "[sec]"

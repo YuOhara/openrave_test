@@ -2,7 +2,7 @@
   <arg name="INPUT" default="/camera/depth/image_rect" />
   <arg name="INFO" default="/camera/depth/camera_info" />
   <arg name="POINTS" default="/camera/depth/points" />
-  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen" respawn="true">
+  <node pkg="jsk_pcl_ros" type="kinfu" name="kinfu" output="screen" respawn="false">
     <remap from="~input/depth" to="$(arg INPUT)" />
     <remap from="~input/color" to="$(arg INPUT)" />
     <remap from="~input/info" to="$(arg INFO)" />
@@ -28,9 +28,9 @@
   <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_right" output="screen" respawn="false">
     <param name="~left_hand" value="false" />
   </node>
-  <!-- <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true"> -->
-  <!--   <param name="~left_hand" value="true" /> -->
-  <!-- </node> -->
+  <node pkg="openrave_test" type="grasp_finder_with_rrt_node.py" name="grasp_finder_left" output="screen" respawn="true">
+    <param name="~left_hand" value="true" />
+  </node>
   <node pkg="image_view" type="image_saver" name="save_image_for_moseg" respawn="true" output="screen">
     <remap from="image" to="/camera_remote/rgb/image_rect_color"/>
     <!-- <param name="~encoding" value="rgb" /> -->

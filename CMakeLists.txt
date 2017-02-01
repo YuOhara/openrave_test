@@ -50,8 +50,10 @@ include_directories(
 
 add_executable(ply_clipper src/ply_clipper.cpp)
 target_link_libraries(ply_clipper ${catkin_LIBRARIES})
-add_executable(second_grasp_finder src/second_grasp_finder.cpp)
-target_link_libraries(second_grasp_finder ${catkin_LIBRARIES})
+if("${OpenCV_VERSION}" VERSION_GREATER "2.9.9")  # >= 3.0.0
+  add_executable(second_grasp_finder src/second_grasp_finder.cpp)
+  target_link_libraries(second_grasp_finder ${catkin_LIBRARIES})
+endif()
 
 add_executable(test_opencv src/test_opencv.cpp)
 target_link_libraries(test_opencv ${catkin_LIBRARIES})

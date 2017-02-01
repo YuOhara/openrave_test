@@ -9,7 +9,7 @@
            (send *robot* :lleg :end-coords :copy-worldcoords)))
     (with-move-target-link-list
      (mt ll *robot* (list :larm :rarm :rleg :lleg))
-     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? nil :translation-axis (list t t t t) :rotation-axis (list t t t t))
+     (fullbody-inverse-kinematics-for-hrp2 tc mt ll :draw? t :translation-axis (list t t t t) :rotation-axis (list t t t t))
      )
     )
   )
